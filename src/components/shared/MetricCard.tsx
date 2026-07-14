@@ -54,7 +54,7 @@ export function MetricCard({ label, value, delta, icon: Icon, gradient = "teal",
             {Math.abs(delta)}%
           </div>
         )}
-        {spark && (
+        {/* {spark && (
           <div className="h-10 w-24">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={spark}>
@@ -68,7 +68,7 @@ export function MetricCard({ label, value, delta, icon: Icon, gradient = "teal",
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        )}
+        )} */}
       </div>
     </motion.div>
   );

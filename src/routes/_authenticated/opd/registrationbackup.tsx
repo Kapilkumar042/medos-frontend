@@ -10,7 +10,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Plus, Trash2, Save, Printer, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,6 @@ import { debug, log } from "console";
 import { opdApi } from "@/lib/opd-api";
 import { useDoctors } from "@/hooks/useDoctors";
 import CreatableSelect from "react-select/creatable";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   patientTypes,
   titleOptions,
@@ -46,7 +45,7 @@ const searchSchema = z.object({
   billing: z.coerce.number().optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/opd/registration")({
+export const Route = createFileRoute("/_authenticated/opd/registrationbackup")({
   component: Page,
   validateSearch: (s) => searchSchema.parse(s),
 });
@@ -74,7 +73,6 @@ const schema = z.object({
   patient_type: z.enum(["New Patient", "Existing Patient", "Emergency", "Free", "RGHS"]),
   relation: z.enum(["Self", "Spouse", "Child", "Parent", "Sibling", "Wife", "Brother"]),
   dob: z.string().min(1, "Required"),
-  age: z.coerce.number().min(0).optional(),
   dateTime: z.string().min(1, "Required"),
   mobile: z.string().min(10, "Min 10 digits"),
   relative_name: z.string().optional(),
@@ -84,7 +82,7 @@ const schema = z.object({
   marital: z.string().optional(),
   occupation: z.string().optional(),
   emergency: z.string().optional(),
-  doctorId: z.string().optional(),
+  doctorId: z.string().min(1, "Required"),
   department: z.string().min(1, "Required"),
   consultant: z.string().optional(),
   idProofType: z.string().optional(),
@@ -136,8 +134,6 @@ function Page() {
   const today = new Date().toISOString().slice(0, 10);
   const { doctors, loading: doctorsLoading } = useDoctors();
   const search = Route.useSearch();
-  const [billCategory, setBillCategory] = useState<BillCategory>("Advance");
-  const [zeroBill, setZeroBill] = useState(false);
   const navigate = useNavigate();
   const editId = search.edit;
   const showBilling = !editId || search.billing === 1;
@@ -163,7 +159,6 @@ function Page() {
       name: "",
       mobile: "",
       dob: "",
-      age: 0,
       address: "",
       doctorId: "",
       department: "",
@@ -453,16 +448,6 @@ function Page() {
       console.log("🔴 Zod validation errors:", errors);
     }
   }, [errors]);
-
-  function dobFromAge(years: number) {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() - years);
-    return date.toISOString().slice(0, 10);
-  }
-  const displaySub = zeroBill ? 0 : totals.sub;
-  const displayTotalDisc = zeroBill ? totals.sub : totals.totalDisc;
-  const displayNet = zeroBill ? 0 : totals.net;
-  const displayDue = zeroBill ? 0 : totals.due;
   return (
     <>
       <PageHeader title={headerTitle} description={headerDesc}>
@@ -592,21 +577,6 @@ function Page() {
               <Field label="Date of Birth" error={errors.dob?.message}>
                 <Input type="date" {...register("dob")} />
               </Field>
-              <Field label="Age (years)">
-                <Input
-                  type="number"
-                  min={0}
-                  max={120}
-                  step={1}
-                  {...register("age", { valueAsNumber: true })}
-                  onChange={(e) => {
-                    const years = Number(e.target.value);
-                    if (!Number.isNaN(years)) {
-                      setValue("dob", dobFromAge(years));
-                    }
-                  }}
-                />
-              </Field>
               <Field label="Mobile" error={errors.mobile?.message}>
                 <Input {...register("mobile")} />
               </Field>
@@ -709,23 +679,6 @@ function Page() {
 
           <Section title="Visit Details">
             <div className="grid md:grid-cols-3 gap-3">
-              <Field label="Visit Purpose">
-                <Select
-                  value={billCategory}
-                  onValueChange={(v) => setBillCategory(v as BillCategory)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Advance">Advance</SelectItem>
-                    <SelectItem value="Lab Test">Lab Test</SelectItem>
-                    <SelectItem value="Radiology">Radiology Test</SelectItem>
-                    <SelectItem value="Other">Other Services</SelectItem>
-                    <SelectItem value="Doctor Fee">Doctor Fees</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
               <Field label="Consultant Doctor" error={errors.doctorId?.message}>
                 <Select
                   onValueChange={(v) => {
@@ -751,26 +704,13 @@ function Page() {
               <Field label="Department" error={errors.department?.message}>
                 <Input {...register("department")} />
               </Field>
-            </div>
-            <div className="flex items-center justify-between mt-4 mb-2">
-              <BillTable
-                rows={rowsOf(billCategory)}
-                category={billCategory}
-                register={register}
-                setValue={setValue}
-                control={control}
-                remove={remove}
-                onAdd={() => addRow(billCategory)}
-              />
-            </div>
-            <div className="grid md:grid-cols-3 gap-3">
               <Field label="Reference Doctor">
                 <Input {...register("reference")} />
               </Field>
               <Field label="Visit Date" error={errors.visitDate?.message}>
                 <Input type="date" {...register("visitDate")} />
               </Field>
-              <Field label="Symptoms" className="">
+              <Field label="Symptoms" className="md:col-span-2">
                 <Input {...register("symptoms")} placeholder="Chief complaints" />
               </Field>
               <Field label="Notes" className="md:col-span-3">
@@ -799,22 +739,22 @@ function Page() {
         </motion.div>
         {showBilling && (
           <>
-            {/* <motion.div
+            <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
               className="rounded-2xl bg-card border border-border shadow-soft p-5"
-            > */}
-            {/* <div className="flex items-center justify-between mb-4">
+            >
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-semibold">Billing</h3>
                   <p className="text-xs text-muted-foreground">
                     Add charges across categories. Lab & Radiology are pickable from catalog.
                   </p>
                 </div>
-              </div> */}
+              </div>
 
-            {/* <Tabs defaultValue="Advance">
+              <Tabs defaultValue="Advance">
                 <TabsList className="flex flex-wrap h-auto justify-between">
                   <TabsTrigger value="Advance">Advance</TabsTrigger>
                   <TabsTrigger value="Lab Test">Lab Test</TabsTrigger>
@@ -838,8 +778,8 @@ function Page() {
                     </TabsContent>
                   ),
                 )}
-              </Tabs> */}
-            {/* </motion.div> */}
+              </Tabs>
+            </motion.div>
 
             {/* Bill Summary BELOW the items card */}
             <motion.div
@@ -850,28 +790,18 @@ function Page() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Bill Summary</h3>
-                <div className="md:col-span-4 flex items-center gap-2 mb-3">
-                  <Checkbox
-                    id="zero-bill"
-                    checked={zeroBill}
-                    onCheckedChange={(checked) => setZeroBill(Boolean(checked))}
-                  />
-                  <label htmlFor="zero-bill" className="text-sm">
-                    Make bill zero
-                  </label>
-                </div>
                 <div className="text-sm text-muted-foreground">
                   Net Payable:{" "}
-                  <span className="text-primary font-semibold text-base">{inr(displayNet)}</span>
+                  <span className="text-primary font-semibold text-base">{inr(totals.net)}</span>
                 </div>
               </div>
 
               <div className="grid md:grid-cols-4 gap-3">
                 <Field label="Total Amount">
-                  <Input value={fmt(displaySub)} readOnly className="bg-muted/40" />
+                  <Input value={fmt(totals.sub)} readOnly className="bg-muted/40" />
                 </Field>
                 <Field label="Item Discount">
-                  <Input value={fmt(displayTotalDisc)} readOnly className="bg-muted/40" />
+                  <Input value={fmt(totals.itemDisc)} readOnly className="bg-muted/40" />
                 </Field>
                 <Field label="Total Discount (Amt.)">
                   <Input
@@ -895,14 +825,14 @@ function Page() {
                 </Field>
                 <Field label="Total Discount">
                   <Input
-                    value={fmt(displayTotalDisc)}
+                    value={fmt(totals.totalDisc)}
                     readOnly
                     className="bg-muted/40 text-destructive font-medium"
                   />
                 </Field>
                 <Field label="Net Amount">
                   <Input
-                    value={fmt(displayNet)}
+                    value={fmt(totals.net)}
                     readOnly
                     className="bg-muted/40 font-semibold text-primary"
                   />
@@ -944,7 +874,7 @@ function Page() {
                 </Field>
 
                 <Field label="Total Due Amount">
-                  <Input value={fmt(displayDue)} readOnly className="bg-muted/40 font-medium" />
+                  <Input value={fmt(totals.due)} readOnly className="bg-muted/40 font-medium" />
                 </Field>
                 <Field label="Discount Hospital/Doctor">
                   <Select

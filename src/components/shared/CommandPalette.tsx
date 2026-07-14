@@ -49,7 +49,11 @@ export function CommandPalette({ open, onOpenChange, onPatientSelect }: Props) {
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput value={q} onValueChange={setQ} placeholder="Type a command, search patient or page…" />
+      <CommandInput
+        value={q}
+        onValueChange={setQ}
+        placeholder="Type a command, search patient or page…"
+      />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         {patients.length > 0 && (

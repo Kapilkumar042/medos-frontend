@@ -18,7 +18,7 @@ function Page() {
   return (
     <>
       <PageHeader title="Patient EMR" description="Electronic Medical Records — vitals, SOAP, diagnoses.">
-        <Button size="sm" className="gradient-teal text-white border-0" onClick={() => toast.success("EMR saved")}>
+        <Button size="sm" className="gradient-blue text-white border-0" onClick={() => toast.success("EMR saved")}>
           <Save className="h-4 w-4 mr-1.5" /> Save Record
         </Button>
       </PageHeader>

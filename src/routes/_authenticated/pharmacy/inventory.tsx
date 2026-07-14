@@ -27,7 +27,7 @@ function Page() {
   return (
     <>
       <PageHeader title="Pharmacy Inventory" description="Track stock, batches, and expiry alerts.">
-        <Button size="sm" className="gradient-teal text-white border-0"><Plus className="h-4 w-4 mr-1.5" /> Add Medicine</Button>
+        <Button size="sm" className="gradient-blue text-white border-0"><Plus className="h-4 w-4 mr-1.5" /> Add Medicine</Button>
       </PageHeader>
       <DataTable data={medicines} columns={cols} searchKeys={["name", "brand", "batch"]} exportFileName="inventory" />
     </>

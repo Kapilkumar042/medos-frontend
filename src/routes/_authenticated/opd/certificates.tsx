@@ -22,7 +22,7 @@ function Page() {
         <Button variant="outline" size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" /> Print
         </Button>
-        <Button size="sm" className="gradient-teal text-white border-0" onClick={() => toast.success("Certificate issued")}>
+        <Button size="sm" className="gradient-blue text-white border-0" onClick={() => toast.success("Certificate issued")}>
           <Award className="h-4 w-4 mr-1.5" /> Issue
         </Button>
       </PageHeader>

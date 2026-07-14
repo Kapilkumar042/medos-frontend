@@ -4,7 +4,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Activity, HeartPulse } from "lucide-react";
+import {
+  Sparkles,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+  Activity,
+  HeartPulse,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +44,7 @@ function LoginPage() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "demo@medos.health", password: "demo1234" },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (data: FormData) => {
@@ -75,7 +85,8 @@ function LoginPage() {
             The modern operating system for healthcare.
           </h1>
           <p className="text-white/70 max-w-md">
-            One platform for OPD, IPD, Lab, Pharmacy, Billing, and Analytics. Built for speed, designed for clinicians.
+            One platform for OPD, IPD, Lab, Pharmacy, Billing, and Analytics. Built for speed,
+            designed for clinicians.
           </p>
           <div className="grid grid-cols-3 gap-4 max-w-md pt-4">
             {[
@@ -111,9 +122,16 @@ function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <div className="relative mt-1.5">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="email" {...register("email")} className="pl-9" placeholder="you@hospital.com" />
+                  <Input
+                    id="email"
+                    {...register("email")}
+                    className="pl-9"
+                    placeholder="you@hospital.com"
+                  />
                 </div>
-                {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
+                {errors.email && (
+                  <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
+                )}
               </div>
 
               <div>
@@ -140,16 +158,26 @@ function LoginPage() {
                     {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
+                {errors.password && (
+                  <p className="text-xs text-destructive mt-1">{errors.password.message}</p>
+                )}
               </div>
 
               <div className="flex items-center gap-2 text-sm">
                 <Checkbox id="remember" defaultChecked />
-                <label htmlFor="remember" className="text-muted-foreground">Remember me for 30 days</label>
+                <label htmlFor="remember" className="text-muted-foreground">
+                  Remember me for 30 days
+                </label>
               </div>
 
-              <Button type="submit" disabled={submitting} className="w-full gradient-teal text-white border-0 hover:opacity-90 h-11">
-                {submitting ? "Signing in…" : (
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="w-full gradient-teal text-white border-0 hover:opacity-90 h-11"
+              >
+                {submitting ? (
+                  "Signing in…"
+                ) : (
                   <>
                     Sign in <ArrowRight className="h-4 w-4 ml-1" />
                   </>
@@ -157,9 +185,12 @@ function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-xs text-center text-muted-foreground">
-              Demo credentials are pre-filled. Just click sign in.
-            </div>
+            <Link
+              to="/register"
+              className="text-sm text-muted-foreground hover:text-foreground mt-4 block text-center"
+            >
+              Not registered yet? <span className="text-primary underline">Create an account</span>
+            </Link>
           </div>
         </motion.div>
       </div>

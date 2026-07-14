@@ -43,7 +43,7 @@ function Page() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/opd/queue"><CalendarDays className="h-4 w-4 mr-1.5" /> View Queue</Link>
         </Button>
-        <Button size="sm" className="gradient-teal text-white border-0 hover:opacity-90">
+        <Button size="sm" className="gradient-blue text-white border-0 hover:opacity-90">
           <Plus className="h-4 w-4 mr-1.5" /> Book Appointment
         </Button>
       </PageHeader>

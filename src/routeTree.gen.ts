@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -20,6 +21,7 @@ import { Route as AuthenticatedSettingsUsersRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings/roles'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings/permissions'
 import { Route as AuthenticatedSettingsHospitalRouteImport } from './routes/_authenticated/settings/hospital'
+import { Route as AuthenticatedSettingsEditRouteImport } from './routes/_authenticated/settings/edit'
 import { Route as AuthenticatedRadiologyXrayRouteImport } from './routes/_authenticated/radiology/xray'
 import { Route as AuthenticatedRadiologyReportsRouteImport } from './routes/_authenticated/radiology/reports'
 import { Route as AuthenticatedRadiologyMriRouteImport } from './routes/_authenticated/radiology/mri'
@@ -28,12 +30,15 @@ import { Route as AuthenticatedPharmacyStockRouteImport } from './routes/_authen
 import { Route as AuthenticatedPharmacySalesRouteImport } from './routes/_authenticated/pharmacy/sales'
 import { Route as AuthenticatedPharmacyInventoryRouteImport } from './routes/_authenticated/pharmacy/inventory'
 import { Route as AuthenticatedOpdTokensRouteImport } from './routes/_authenticated/opd/tokens'
+import { Route as AuthenticatedOpdRegistrationbackupRouteImport } from './routes/_authenticated/opd/registrationbackup'
 import { Route as AuthenticatedOpdRegistrationRouteImport } from './routes/_authenticated/opd/registration'
 import { Route as AuthenticatedOpdQueueRouteImport } from './routes/_authenticated/opd/queue'
 import { Route as AuthenticatedOpdPrescriptionsRouteImport } from './routes/_authenticated/opd/prescriptions'
+import { Route as AuthenticatedOpdPatientsRouteImport } from './routes/_authenticated/opd/patients'
 import { Route as AuthenticatedOpdEmrRouteImport } from './routes/_authenticated/opd/emr'
 import { Route as AuthenticatedOpdCertificatesRouteImport } from './routes/_authenticated/opd/certificates'
 import { Route as AuthenticatedOpdAppointmentsRouteImport } from './routes/_authenticated/opd/appointments'
+import { Route as AuthenticatedMasterDoctorProfileRouteImport } from './routes/_authenticated/master/doctor-profile'
 import { Route as AuthenticatedLabSamplesRouteImport } from './routes/_authenticated/lab/samples'
 import { Route as AuthenticatedLabReportsRouteImport } from './routes/_authenticated/lab/reports'
 import { Route as AuthenticatedLabBookingRouteImport } from './routes/_authenticated/lab/booking'
@@ -49,6 +54,11 @@ import { Route as AuthenticatedBillingIpdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedBillingExpensesRouteImport } from './routes/_authenticated/billing/expenses'
 import { Route as AuthenticatedBillingDoctorShareRouteImport } from './routes/_authenticated/billing/doctor-share'
 
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -107,6 +117,12 @@ const AuthenticatedSettingsHospitalRoute =
     path: '/settings/hospital',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsEditRoute =
+  AuthenticatedSettingsEditRouteImport.update({
+    id: '/settings/edit',
+    path: '/settings/edit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedRadiologyXrayRoute =
   AuthenticatedRadiologyXrayRouteImport.update({
     id: '/radiology/xray',
@@ -154,6 +170,12 @@ const AuthenticatedOpdTokensRoute = AuthenticatedOpdTokensRouteImport.update({
   path: '/opd/tokens',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedOpdRegistrationbackupRoute =
+  AuthenticatedOpdRegistrationbackupRouteImport.update({
+    id: '/opd/registrationbackup',
+    path: '/opd/registrationbackup',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedOpdRegistrationRoute =
   AuthenticatedOpdRegistrationRouteImport.update({
     id: '/opd/registration',
@@ -171,6 +193,12 @@ const AuthenticatedOpdPrescriptionsRoute =
     path: '/opd/prescriptions',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedOpdPatientsRoute =
+  AuthenticatedOpdPatientsRouteImport.update({
+    id: '/opd/patients',
+    path: '/opd/patients',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedOpdEmrRoute = AuthenticatedOpdEmrRouteImport.update({
   id: '/opd/emr',
   path: '/opd/emr',
@@ -186,6 +214,12 @@ const AuthenticatedOpdAppointmentsRoute =
   AuthenticatedOpdAppointmentsRouteImport.update({
     id: '/opd/appointments',
     path: '/opd/appointments',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMasterDoctorProfileRoute =
+  AuthenticatedMasterDoctorProfileRouteImport.update({
+    id: '/master/doctor-profile',
+    path: '/master/doctor-profile',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedLabSamplesRoute = AuthenticatedLabSamplesRouteImport.update({
@@ -268,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -285,12 +320,15 @@ export interface FileRoutesByFullPath {
   '/lab/booking': typeof AuthenticatedLabBookingRoute
   '/lab/reports': typeof AuthenticatedLabReportsRoute
   '/lab/samples': typeof AuthenticatedLabSamplesRoute
+  '/master/doctor-profile': typeof AuthenticatedMasterDoctorProfileRoute
   '/opd/appointments': typeof AuthenticatedOpdAppointmentsRoute
   '/opd/certificates': typeof AuthenticatedOpdCertificatesRoute
   '/opd/emr': typeof AuthenticatedOpdEmrRoute
+  '/opd/patients': typeof AuthenticatedOpdPatientsRoute
   '/opd/prescriptions': typeof AuthenticatedOpdPrescriptionsRoute
   '/opd/queue': typeof AuthenticatedOpdQueueRoute
   '/opd/registration': typeof AuthenticatedOpdRegistrationRoute
+  '/opd/registrationbackup': typeof AuthenticatedOpdRegistrationbackupRoute
   '/opd/tokens': typeof AuthenticatedOpdTokensRoute
   '/pharmacy/inventory': typeof AuthenticatedPharmacyInventoryRoute
   '/pharmacy/sales': typeof AuthenticatedPharmacySalesRoute
@@ -299,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/radiology/mri': typeof AuthenticatedRadiologyMriRoute
   '/radiology/reports': typeof AuthenticatedRadiologyReportsRoute
   '/radiology/xray': typeof AuthenticatedRadiologyXrayRoute
+  '/settings/edit': typeof AuthenticatedSettingsEditRoute
   '/settings/hospital': typeof AuthenticatedSettingsHospitalRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
@@ -308,6 +347,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -325,12 +365,15 @@ export interface FileRoutesByTo {
   '/lab/booking': typeof AuthenticatedLabBookingRoute
   '/lab/reports': typeof AuthenticatedLabReportsRoute
   '/lab/samples': typeof AuthenticatedLabSamplesRoute
+  '/master/doctor-profile': typeof AuthenticatedMasterDoctorProfileRoute
   '/opd/appointments': typeof AuthenticatedOpdAppointmentsRoute
   '/opd/certificates': typeof AuthenticatedOpdCertificatesRoute
   '/opd/emr': typeof AuthenticatedOpdEmrRoute
+  '/opd/patients': typeof AuthenticatedOpdPatientsRoute
   '/opd/prescriptions': typeof AuthenticatedOpdPrescriptionsRoute
   '/opd/queue': typeof AuthenticatedOpdQueueRoute
   '/opd/registration': typeof AuthenticatedOpdRegistrationRoute
+  '/opd/registrationbackup': typeof AuthenticatedOpdRegistrationbackupRoute
   '/opd/tokens': typeof AuthenticatedOpdTokensRoute
   '/pharmacy/inventory': typeof AuthenticatedPharmacyInventoryRoute
   '/pharmacy/sales': typeof AuthenticatedPharmacySalesRoute
@@ -339,6 +382,7 @@ export interface FileRoutesByTo {
   '/radiology/mri': typeof AuthenticatedRadiologyMriRoute
   '/radiology/reports': typeof AuthenticatedRadiologyReportsRoute
   '/radiology/xray': typeof AuthenticatedRadiologyXrayRoute
+  '/settings/edit': typeof AuthenticatedSettingsEditRoute
   '/settings/hospital': typeof AuthenticatedSettingsHospitalRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
@@ -350,6 +394,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -367,12 +412,15 @@ export interface FileRoutesById {
   '/_authenticated/lab/booking': typeof AuthenticatedLabBookingRoute
   '/_authenticated/lab/reports': typeof AuthenticatedLabReportsRoute
   '/_authenticated/lab/samples': typeof AuthenticatedLabSamplesRoute
+  '/_authenticated/master/doctor-profile': typeof AuthenticatedMasterDoctorProfileRoute
   '/_authenticated/opd/appointments': typeof AuthenticatedOpdAppointmentsRoute
   '/_authenticated/opd/certificates': typeof AuthenticatedOpdCertificatesRoute
   '/_authenticated/opd/emr': typeof AuthenticatedOpdEmrRoute
+  '/_authenticated/opd/patients': typeof AuthenticatedOpdPatientsRoute
   '/_authenticated/opd/prescriptions': typeof AuthenticatedOpdPrescriptionsRoute
   '/_authenticated/opd/queue': typeof AuthenticatedOpdQueueRoute
   '/_authenticated/opd/registration': typeof AuthenticatedOpdRegistrationRoute
+  '/_authenticated/opd/registrationbackup': typeof AuthenticatedOpdRegistrationbackupRoute
   '/_authenticated/opd/tokens': typeof AuthenticatedOpdTokensRoute
   '/_authenticated/pharmacy/inventory': typeof AuthenticatedPharmacyInventoryRoute
   '/_authenticated/pharmacy/sales': typeof AuthenticatedPharmacySalesRoute
@@ -381,6 +429,7 @@ export interface FileRoutesById {
   '/_authenticated/radiology/mri': typeof AuthenticatedRadiologyMriRoute
   '/_authenticated/radiology/reports': typeof AuthenticatedRadiologyReportsRoute
   '/_authenticated/radiology/xray': typeof AuthenticatedRadiologyXrayRoute
+  '/_authenticated/settings/edit': typeof AuthenticatedSettingsEditRoute
   '/_authenticated/settings/hospital': typeof AuthenticatedSettingsHospitalRoute
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
@@ -392,6 +441,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
+    | '/register'
     | '/analytics'
     | '/dashboard'
     | '/reports'
@@ -409,12 +459,15 @@ export interface FileRouteTypes {
     | '/lab/booking'
     | '/lab/reports'
     | '/lab/samples'
+    | '/master/doctor-profile'
     | '/opd/appointments'
     | '/opd/certificates'
     | '/opd/emr'
+    | '/opd/patients'
     | '/opd/prescriptions'
     | '/opd/queue'
     | '/opd/registration'
+    | '/opd/registrationbackup'
     | '/opd/tokens'
     | '/pharmacy/inventory'
     | '/pharmacy/sales'
@@ -423,6 +476,7 @@ export interface FileRouteTypes {
     | '/radiology/mri'
     | '/radiology/reports'
     | '/radiology/xray'
+    | '/settings/edit'
     | '/settings/hospital'
     | '/settings/permissions'
     | '/settings/roles'
@@ -432,6 +486,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
+    | '/register'
     | '/analytics'
     | '/dashboard'
     | '/reports'
@@ -449,12 +504,15 @@ export interface FileRouteTypes {
     | '/lab/booking'
     | '/lab/reports'
     | '/lab/samples'
+    | '/master/doctor-profile'
     | '/opd/appointments'
     | '/opd/certificates'
     | '/opd/emr'
+    | '/opd/patients'
     | '/opd/prescriptions'
     | '/opd/queue'
     | '/opd/registration'
+    | '/opd/registrationbackup'
     | '/opd/tokens'
     | '/pharmacy/inventory'
     | '/pharmacy/sales'
@@ -463,6 +521,7 @@ export interface FileRouteTypes {
     | '/radiology/mri'
     | '/radiology/reports'
     | '/radiology/xray'
+    | '/settings/edit'
     | '/settings/hospital'
     | '/settings/permissions'
     | '/settings/roles'
@@ -473,6 +532,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/forgot-password'
     | '/login'
+    | '/register'
     | '/_authenticated/analytics'
     | '/_authenticated/dashboard'
     | '/_authenticated/reports'
@@ -490,12 +550,15 @@ export interface FileRouteTypes {
     | '/_authenticated/lab/booking'
     | '/_authenticated/lab/reports'
     | '/_authenticated/lab/samples'
+    | '/_authenticated/master/doctor-profile'
     | '/_authenticated/opd/appointments'
     | '/_authenticated/opd/certificates'
     | '/_authenticated/opd/emr'
+    | '/_authenticated/opd/patients'
     | '/_authenticated/opd/prescriptions'
     | '/_authenticated/opd/queue'
     | '/_authenticated/opd/registration'
+    | '/_authenticated/opd/registrationbackup'
     | '/_authenticated/opd/tokens'
     | '/_authenticated/pharmacy/inventory'
     | '/_authenticated/pharmacy/sales'
@@ -504,6 +567,7 @@ export interface FileRouteTypes {
     | '/_authenticated/radiology/mri'
     | '/_authenticated/radiology/reports'
     | '/_authenticated/radiology/xray'
+    | '/_authenticated/settings/edit'
     | '/_authenticated/settings/hospital'
     | '/_authenticated/settings/permissions'
     | '/_authenticated/settings/roles'
@@ -515,10 +579,18 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -596,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsHospitalRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/edit': {
+      id: '/_authenticated/settings/edit'
+      path: '/settings/edit'
+      fullPath: '/settings/edit'
+      preLoaderRoute: typeof AuthenticatedSettingsEditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/radiology/xray': {
       id: '/_authenticated/radiology/xray'
       path: '/radiology/xray'
@@ -652,6 +731,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpdTokensRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/opd/registrationbackup': {
+      id: '/_authenticated/opd/registrationbackup'
+      path: '/opd/registrationbackup'
+      fullPath: '/opd/registrationbackup'
+      preLoaderRoute: typeof AuthenticatedOpdRegistrationbackupRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/opd/registration': {
       id: '/_authenticated/opd/registration'
       path: '/opd/registration'
@@ -673,6 +759,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpdPrescriptionsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/opd/patients': {
+      id: '/_authenticated/opd/patients'
+      path: '/opd/patients'
+      fullPath: '/opd/patients'
+      preLoaderRoute: typeof AuthenticatedOpdPatientsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/opd/emr': {
       id: '/_authenticated/opd/emr'
       path: '/opd/emr'
@@ -692,6 +785,13 @@ declare module '@tanstack/react-router' {
       path: '/opd/appointments'
       fullPath: '/opd/appointments'
       preLoaderRoute: typeof AuthenticatedOpdAppointmentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/master/doctor-profile': {
+      id: '/_authenticated/master/doctor-profile'
+      path: '/master/doctor-profile'
+      fullPath: '/master/doctor-profile'
+      preLoaderRoute: typeof AuthenticatedMasterDoctorProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/lab/samples': {
@@ -813,12 +913,15 @@ interface AuthenticatedRouteChildren {
   AuthenticatedLabBookingRoute: typeof AuthenticatedLabBookingRoute
   AuthenticatedLabReportsRoute: typeof AuthenticatedLabReportsRoute
   AuthenticatedLabSamplesRoute: typeof AuthenticatedLabSamplesRoute
+  AuthenticatedMasterDoctorProfileRoute: typeof AuthenticatedMasterDoctorProfileRoute
   AuthenticatedOpdAppointmentsRoute: typeof AuthenticatedOpdAppointmentsRoute
   AuthenticatedOpdCertificatesRoute: typeof AuthenticatedOpdCertificatesRoute
   AuthenticatedOpdEmrRoute: typeof AuthenticatedOpdEmrRoute
+  AuthenticatedOpdPatientsRoute: typeof AuthenticatedOpdPatientsRoute
   AuthenticatedOpdPrescriptionsRoute: typeof AuthenticatedOpdPrescriptionsRoute
   AuthenticatedOpdQueueRoute: typeof AuthenticatedOpdQueueRoute
   AuthenticatedOpdRegistrationRoute: typeof AuthenticatedOpdRegistrationRoute
+  AuthenticatedOpdRegistrationbackupRoute: typeof AuthenticatedOpdRegistrationbackupRoute
   AuthenticatedOpdTokensRoute: typeof AuthenticatedOpdTokensRoute
   AuthenticatedPharmacyInventoryRoute: typeof AuthenticatedPharmacyInventoryRoute
   AuthenticatedPharmacySalesRoute: typeof AuthenticatedPharmacySalesRoute
@@ -827,6 +930,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRadiologyMriRoute: typeof AuthenticatedRadiologyMriRoute
   AuthenticatedRadiologyReportsRoute: typeof AuthenticatedRadiologyReportsRoute
   AuthenticatedRadiologyXrayRoute: typeof AuthenticatedRadiologyXrayRoute
+  AuthenticatedSettingsEditRoute: typeof AuthenticatedSettingsEditRoute
   AuthenticatedSettingsHospitalRoute: typeof AuthenticatedSettingsHospitalRoute
   AuthenticatedSettingsPermissionsRoute: typeof AuthenticatedSettingsPermissionsRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
@@ -851,12 +955,16 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedLabBookingRoute: AuthenticatedLabBookingRoute,
   AuthenticatedLabReportsRoute: AuthenticatedLabReportsRoute,
   AuthenticatedLabSamplesRoute: AuthenticatedLabSamplesRoute,
+  AuthenticatedMasterDoctorProfileRoute: AuthenticatedMasterDoctorProfileRoute,
   AuthenticatedOpdAppointmentsRoute: AuthenticatedOpdAppointmentsRoute,
   AuthenticatedOpdCertificatesRoute: AuthenticatedOpdCertificatesRoute,
   AuthenticatedOpdEmrRoute: AuthenticatedOpdEmrRoute,
+  AuthenticatedOpdPatientsRoute: AuthenticatedOpdPatientsRoute,
   AuthenticatedOpdPrescriptionsRoute: AuthenticatedOpdPrescriptionsRoute,
   AuthenticatedOpdQueueRoute: AuthenticatedOpdQueueRoute,
   AuthenticatedOpdRegistrationRoute: AuthenticatedOpdRegistrationRoute,
+  AuthenticatedOpdRegistrationbackupRoute:
+    AuthenticatedOpdRegistrationbackupRoute,
   AuthenticatedOpdTokensRoute: AuthenticatedOpdTokensRoute,
   AuthenticatedPharmacyInventoryRoute: AuthenticatedPharmacyInventoryRoute,
   AuthenticatedPharmacySalesRoute: AuthenticatedPharmacySalesRoute,
@@ -865,6 +973,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRadiologyMriRoute: AuthenticatedRadiologyMriRoute,
   AuthenticatedRadiologyReportsRoute: AuthenticatedRadiologyReportsRoute,
   AuthenticatedRadiologyXrayRoute: AuthenticatedRadiologyXrayRoute,
+  AuthenticatedSettingsEditRoute: AuthenticatedSettingsEditRoute,
   AuthenticatedSettingsHospitalRoute: AuthenticatedSettingsHospitalRoute,
   AuthenticatedSettingsPermissionsRoute: AuthenticatedSettingsPermissionsRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
@@ -880,6 +989,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  RegisterRoute: RegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

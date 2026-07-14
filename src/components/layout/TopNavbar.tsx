@@ -217,7 +217,7 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="default" size="sm" className="hidden md:inline-flex gap-1.5 gradient-teal text-white border-0 hover:opacity-90">
+            <Button variant="default" size="sm" className="hidden md:inline-flex gap-1.5 gradient-blue text-white border-0 hover:opacity-90">
               <Plus className="h-4 w-4" /> Quick Action
             </Button>
           </DropdownMenuTrigger>
@@ -249,7 +249,7 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {[
-              { t: "New OPD registration", d: "Patient UH24012 just registered", c: "text-secondary" },
+              { t: "New OPD registration", d: "Patient UH24012 just registered", c: "text-primary" },
               { t: "Lab report ready", d: "CBC for Priya Patel completed", c: "text-success" },
               { t: "Bed reserved", d: "ICU bed I-103 reserved", c: "text-warning" },
             ].map((n, i) => (
