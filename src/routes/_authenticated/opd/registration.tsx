@@ -7,6 +7,7 @@ import {
   type UseFormRegister,
   type UseFormSetValue,
 } from "react-hook-form";
+import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
@@ -41,9 +42,11 @@ import {
   maritalStatusOptions,
   relationshipOptions,
 } from "./data";
+import { openBillPreview, type BillPrintData } from "@/lib/opd-bill-print";
 const searchSchema = z.object({
-  edit: z.string().optional(),
+  edit: z.coerce.string().optional(),
   billing: z.coerce.number().optional(),
+  print: z.coerce.number().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/opd/registration")({
@@ -71,7 +74,7 @@ const schema = z.object({
   name: z.string().min(2, "Required"),
   gender: z.enum(["Male", "Female", "Other"]),
   salutation: z.enum(["Mr.", "Mrs.", "Miss.", "Master", "Baby", "Dr."]),
-  patient_type: z.enum(["New Patient", "Existing Patient", "Emergency", "Free", "RGHS"]),
+  patient_type: z.enum(["New Patient", "Existing Patient"]),
   relation: z.enum(["Self", "Spouse", "Child", "Parent", "Sibling", "Wife", "Brother"]),
   dob: z.string().min(1, "Required"),
   age: z.coerce.number().min(0).optional(),
@@ -135,18 +138,25 @@ const RADIO_CATALOG = [
 function Page() {
   const today = new Date().toISOString().slice(0, 10);
   const { doctors, loading: doctorsLoading } = useDoctors();
+  console.log("doctors", doctors);
+
+  const [apiPatient, setApiPatient] = useState<any>(null);
+
   const search = Route.useSearch();
   const [billCategory, setBillCategory] = useState<BillCategory>("Advance");
   const [zeroBill, setZeroBill] = useState(false);
   const navigate = useNavigate();
+
   const editId = search.edit;
+  console.log("editId", editId);
+  const printOnBilling = search.print === 1;
   const showBilling = !editId || search.billing === 1;
   const isEdit = !!editId;
   const existing = useOpdStore((s) =>
     editId ? s.patients.find((p) => p.id === editId) : undefined,
   );
-  const addPatient = useOpdStore((s) => s.addPatient);
   const updatePatient = useOpdStore((s) => s.updatePatient);
+
   const {
     register,
     control,
@@ -267,75 +277,87 @@ function Page() {
     return allowedBloodGroups.includes(value);
   }
   // ...existing code...
+  const patientData = existing ?? apiPatient;
+  useEffect(() => {
+    if (!patientData) return;
+
+    reset({
+      uhid: patientData.uhid,
+      abha: patientData.abha,
+      aadhaar: patientData.aadhaar,
+      opdNo: patientData.opdNo,
+      name: patientData.name,
+      gender: isAllowedGender(patientData.gender) ? patientData.gender : "Male",
+      salutation: isAllowedSalutation(patientData.salutation) ? patientData.salutation : "Mr.",
+      patient_type: isAllowedPatientType(patientData.patient_type)
+        ? patientData.patient_type
+        : "New Patient",
+      relation: isAllowedRelation(patientData.relation) ? patientData.relation : "Self",
+      dob: patientData.dob ?? "",
+      dateTime: patientData.date_time ?? patientData.dateTime ?? today,
+      mobile: patientData.mobile ?? "",
+      relative_name: patientData.relative_name,
+      email: patientData.email ?? "",
+      address: patientData.address ?? "",
+      bloodGroup: isAllowedBloodGroup(patientData.blood_group ?? patientData.bloodGroup)
+        ? (patientData.blood_group ?? patientData.bloodGroup)
+        : "Not Specified",
+      marital: isAllowedMaritalStatus(patientData.marital) ? patientData.marital : "Not Specified",
+      occupation: patientData.occupation,
+      emergency: patientData.emergency,
+      // doctor_id from API is a number, coerce to string
+      doctorId: String(patientData.doctor_id ?? patientData.doctorId ?? ""),
+      department: patientData.department ?? "",
+      consultant: patientData.consultant,
+      idProofType: patientData.id_proof_type ?? patientData.idProofType,
+      idProofNumber: patientData.id_proof_number ?? patientData.idProofNumber,
+      state: patientData.state,
+      district: patientData.district ?? "Bulandshahr",
+      city_town: patientData.city_town,
+      religion: patientData.religion,
+      pincode: patientData.pincode,
+      education: patientData.education,
+      reference: patientData.reference,
+      visitDate: patientData.visit_date ?? patientData.visitDate ?? today,
+      symptoms: patientData.symptoms,
+      notes: patientData.notes,
+      items: patientData.items ?? [
+        {
+          category: "Advance",
+          name: "OPD Advance",
+          code: "",
+          qty: 1,
+          amount: 500,
+          discount: 0,
+          remarks: "",
+        },
+      ],
+      discount: patientData.discount ?? 0,
+      gstPct: patientData.gstPct ?? 0,
+      totalDiscountAmt: patientData.totalDiscountAmt ?? 0,
+      totalDiscountPct: patientData.totalDiscountPct ?? 0,
+      paymentType: isAllowedPaymentType(patientData.paymentType)
+        ? patientData.paymentType
+        : "Single Paymode",
+      payMode1: isAllowedPayMode(patientData.payMode1) ? patientData.payMode1 : "CASH",
+      amount1: patientData.amount1 ?? 0,
+      remark: patientData.remark ?? "",
+      discountSource: isAllowedDiscountSource(patientData.discountSource)
+        ? patientData.discountSource
+        : "Hospital Discount",
+    });
+  }, [patientData, reset]);
 
   useEffect(() => {
-    if (existing) {
-      reset({
-        uhid: existing.uhid,
-        abha: existing.abha,
-        aadhaar: existing.aadhaar,
-        opdNo: existing.opdNo,
-        name: existing.name,
-        gender: isAllowedGender(existing.gender) ? existing.gender : "Male",
-        salutation: isAllowedSalutation(existing.salutation) ? existing.salutation : "Mr.",
-        patient_type: isAllowedPatientType(existing.patient_type)
-          ? existing.patient_type
-          : "New Patient",
-        relation: isAllowedRelation(existing.relation) ? existing.relation : "Self",
-        dob: existing.dob,
-        dateTime: existing.dateTime,
-        mobile: existing.mobile,
-        relative_name: existing.relative_name,
-        email: existing.email ?? "",
-        address: existing.address,
-        bloodGroup: isAllowedBloodGroup(existing.bloodGroup)
-          ? existing.bloodGroup
-          : "Not Specified",
-        marital: isAllowedMaritalStatus(existing.marital) ? existing.marital : "Not Specified",
-        occupation: existing.occupation,
-        emergency: existing.emergency,
-        doctorId: existing.doctorId,
-        department: existing.department,
-        consultant: existing.consultant,
-        idProofType: existing.idProofType,
-        idProofNumber: existing.idProofNumber,
-        state: existing.state,
-        district: existing.district,
-        city_town: existing.city_town,
-        religion: existing.religion,
-        pincode: existing.pincode,
-        education: existing.education,
-        reference: existing.reference,
-        visitDate: existing.visitDate,
-        symptoms: existing.symptoms,
-        notes: existing.notes,
-        items: existing.items ?? [
-          {
-            category: "Advance",
-            name: "OPD Advance",
-            code: "",
-            qty: 1,
-            amount: 500,
-            discount: 0,
-            remarks: "",
-          },
-        ],
-        discount: existing.discount ?? 0,
-        gstPct: existing.gstPct ?? 0,
-        totalDiscountAmt: existing.totalDiscountAmt ?? 0,
-        totalDiscountPct: existing.totalDiscountPct ?? 0,
-        paymentType: isAllowedPaymentType(existing.paymentType)
-          ? existing.paymentType
-          : "Single Paymode",
-        payMode1: isAllowedPayMode(existing.payMode1) ? existing.payMode1 : "CASH",
-        amount1: existing.amount1 ?? 0,
-        remark: existing.remark ?? "",
-        discountSource: isAllowedDiscountSource(existing.discountSource)
-          ? existing.discountSource
-          : "Hospital Discount",
-      });
+    if (editId) {
+      opdApi
+        .getPatient(editId)
+        .then((data) => {
+          setApiPatient(data);
+        })
+        .catch(console.error);
     }
-  }, [existing, reset]);
+  }, [editId]);
 
   // ...existing code...
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
@@ -359,16 +381,46 @@ function Page() {
   // onSubmit — remove uhid/opdNo from API call, they come back from backend
   const onSubmit = async (d: FormData) => {
     try {
-      const patient = await opdApi.createPatient({
+      // const patient = await opdApi.createPatient({
+      //   name: d.name,
+      //   gender: d.gender,
+      //   dob: d.dob,
+      //   mobile: d.mobile,
+      //   address: d.address,
+      //   bloodGroup: d.bloodGroup,
+      //   doctorId: d.doctorId,
+      //   department: d.department,
+      //   consultant: d.consultant,
+      //   email: d.email,
+      //   aadhaar: d.aadhaar,
+      //   abha: d.abha,
+      //   state: d.state,
+      //   district: d.district,
+      //   city_town: d.city_town,
+      //   pincode: d.pincode,
+      //   occupation: d.occupation,
+      //   marital: d.marital,
+      //   emergency: d.emergency,
+      //   reference: d.reference,
+      //   salutation: d.salutation,
+      //   patient_type: d.patient_type,
+      //   relation: d.relation,
+      //   relative_name: d.relative_name,
+      //   dateTime: d.dateTime,
+      //   idProofType: d.idProofType,
+      //   idProofNumber: d.idProofNumber,
+      //   religion: d.religion,
+      //   education: d.education,
+      // });
+      const patientPayload = {
         name: d.name,
         gender: d.gender,
         dob: d.dob,
         mobile: d.mobile,
         address: d.address,
-        bloodGroup: d.bloodGroup,
-        doctorId: d.doctorId,
+        blood_group: d.bloodGroup,
+        doctor_id: d.doctorId,
         department: d.department,
-        consultant: d.consultant,
         email: d.email,
         aadhaar: d.aadhaar,
         abha: d.abha,
@@ -384,14 +436,28 @@ function Page() {
         patient_type: d.patient_type,
         relation: d.relation,
         relative_name: d.relative_name,
-        dateTime: d.dateTime,
-        idProofType: d.idProofType,
-        idProofNumber: d.idProofNumber,
+        date_time: d.dateTime,
+        id_proof_type: d.idProofType,
+        id_proof_number: d.idProofNumber,
         religion: d.religion,
         education: d.education,
-        // uhid and opdNo NOT sent — backend generates these
-      });
+        consultant: d.consultant,
+      };
 
+      const patient = editId
+        ? await opdApi.updatePatient(editId, patientPayload)
+        : await opdApi.createPatient(patientPayload);
+
+      if (editId) {
+        updatePatient(editId, {
+          ...patient,
+          id: String(patient.id),
+          bloodGroup: patient.blood_group ?? patient.bloodGroup,
+          doctorId: String(patient.doctor_id ?? patient.doctorId ?? ""),
+          dateTime: patient.date_time ?? patient.dateTime,
+          visitDate: patient.visit_date ?? patient.visitDate,
+        });
+      }
       const visit = await opdApi.createVisit({
         patient_id: patient.id,
         doctor_id: Number(d.doctorId),
@@ -401,8 +467,10 @@ function Page() {
         notes: d.notes,
       });
 
+      let createdBill: any = null;
+
       if (showBilling) {
-        await opdApi.createBill({
+        createdBill = await opdApi.createBill({
           patient_id: patient.id,
           visitId: visit.id,
           items: d.items,
@@ -417,7 +485,27 @@ function Page() {
         });
       }
 
-      toast.success("Patient Registered Successfully");
+      if (showBilling) {
+        const billPreviewPayload: BillPrintData = {
+          ...d,
+          uhid: patient?.uhid ?? d.uhid,
+          opdNo: patient?.opd_no ?? patient?.opdNo ?? d.opdNo,
+        };
+
+        const previewOpened = openBillPreview(billPreviewPayload, totals, doctors, {
+          autoPrint: true,
+          billNo: createdBill?.bill_no ?? createdBill?.billNo ?? createdBill?.id ?? undefined,
+        });
+
+        toast.success(
+          previewOpened
+            ? "Patient registered successfully. Bill preview opened."
+            : "Patient registered successfully",
+        );
+      } else {
+        toast.success("Patient registered successfully");
+      }
+
       navigate({ to: "/opd/patients" });
     } catch (error) {
       console.error(error);
@@ -434,7 +522,7 @@ function Page() {
 
   const handlePreviewPrint = () => {
     const d = getValues();
-    printBill(d, totals, doctors);
+    openBillPreview(d as BillPrintData, totals, doctors, { autoPrint: false });
   };
   const headerTitle = isEdit ? (showBilling ? "OPD Billing" : "Edit Patient") : "OPD Registration";
   const headerDesc = isEdit
@@ -463,6 +551,54 @@ function Page() {
   const displayTotalDisc = zeroBill ? totals.sub : totals.totalDisc;
   const displayNet = zeroBill ? 0 : totals.net;
   const displayDue = zeroBill ? 0 : totals.due;
+
+  useEffect(() => {
+    if (!editId) return;
+
+    // Fetch patient
+    opdApi.getPatient(editId).then(setApiPatient).catch(console.error);
+
+    // Fetch latest visit for this patient
+    opdApi
+      .listVisits()
+      .then((visits: any[]) => {
+        const latest = visits
+          .filter((v) => String(v.patient_id) === String(editId))
+          .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())[0];
+        if (latest) {
+          setValue("visitDate", latest.visit_date ?? today);
+          setValue("symptoms", latest.symptoms ?? "");
+          setValue("notes", latest.notes ?? "");
+          setValue("doctorId", String(latest.doctor_id ?? ""));
+          setValue("department", latest.department ?? "");
+        }
+      })
+      .catch(console.error);
+
+    // Fetch latest bill for this patient
+    opdApi
+      .listBills()
+      .then((bills: any[]) => {
+        const latest = bills
+          .filter((b) => String(b.patient_id) === String(editId))
+          .sort((a, b) => b.id - a.id)[0];
+        if (latest) {
+          setValue("amount1", latest.paid_amount ?? 0);
+          setValue("totalDiscountAmt", latest.total_discount ?? 0);
+          setValue("payMode1", latest.payment_mode ?? "CASH");
+          setValue("discountSource", latest.discount_source ?? "Hospital Discount");
+          setValue("remark", latest.remark ?? "");
+          // Restore bill items if stored
+          if (Array.isArray(latest.items) && latest.items.length > 0) {
+            setValue("items", latest.items);
+          }
+        }
+      })
+      .catch(console.error);
+  }, [editId]);
+  const patientTypeValue = patientTypes.find((o) => o.value === watch("patient_type")) ?? null;
+  const salutationValue = titleOptions.find((o) => o.value === watch("salutation")) ?? null;
+  const genderValue = genderOptions.find((o) => o.value === watch("gender")) ?? null;
   return (
     <>
       <PageHeader title={headerTitle} description={headerDesc}>
@@ -505,40 +641,44 @@ function Page() {
           </Section>
           <Section title="Patient Information">
             <div className="grid md:grid-cols-4 gap-3">
-              {/* <Field label="UHID" error={errors.uhid?.message}>
-                <Input {...register("uhid")} />
-              </Field> */}
+              {isEdit && (
+                <Field label="UHID">
+                  <Input
+                    value={watch("uhid") ?? ""}
+                    readOnly
+                    className="bg-muted/40 font-mono text-xs"
+                  />
+                </Field>
+              )}
               <Field label="Patient Type">
-                <CreatableSelect
-                  options={patientTypes}
-                  isClearable
-                  placeholder="Select Patient Type"
-                  onChange={(option) => {
-                    const value = option?.value;
-                    if (isAllowedPatientType(value)) {
-                      setValue("patient_type", value);
-                    } else {
-                      setValue("patient_type", "New Patient");
-                    }
-                  }}
+                <Controller
+                  name="patient_type"
+                  control={control}
+                  render={({ field }) => (
+                    <CreatableSelect
+                      options={patientTypes}
+                      isClearable
+                      placeholder="Select Patient Type"
+                      value={patientTypes.find((o) => o.value === field.value) ?? null}
+                      onChange={(option) => field.onChange(option?.value ?? "New Patient")}
+                    />
+                  )}
                 />
               </Field>
               {/* <Field label="OPD NO" error={errors.opdNo?.message}>
                 <Input {...register("opdNo")} />
               </Field> */}
               <Field label="SALUTATION">
-                <CreatableSelect
-                  options={titleOptions}
-                  isClearable
-                  placeholder="Select Salutation"
-                  onChange={(option) => {
-                    const value = option?.value;
-                    if (isAllowedSalutation(value)) {
-                      setValue("salutation", value);
-                    } else {
-                      setValue("salutation", "Mr.");
-                    }
-                  }}
+                <Controller
+                  name="salutation"
+                  control={control}
+                  render={({ field }) => (
+                    <CreatableSelect
+                      options={titleOptions}
+                      value={titleOptions.find((o) => o.value === field.value) ?? null}
+                      onChange={(option) => field.onChange(option?.value ?? "Mr.")}
+                    />
+                  )}
                 />
                 {/* <Select defaultValue="Mr." onValueChange={(v) => setValue("salutation", v as any)}>
                   <SelectTrigger>
@@ -562,18 +702,18 @@ function Page() {
                 />
               </Field>
               <Field label="Gender">
-                <CreatableSelect
-                  options={genderOptions}
-                  isClearable
-                  placeholder="Select Gender"
-                  onChange={(option) => {
-                    const value = option?.value;
-                    if (isAllowedGender(value)) {
-                      setValue("gender", value);
-                    } else {
-                      setValue("gender", "Male");
-                    }
-                  }}
+                <Controller
+                  name="gender"
+                  control={control}
+                  render={({ field }) => (
+                    <CreatableSelect
+                      options={genderOptions}
+                      isClearable
+                      placeholder="Select Gender"
+                      value={genderOptions.find((o) => o.value === field.value) ?? null}
+                      onChange={(option) => field.onChange(option?.value ?? "Male")}
+                    />
+                  )}
                 />
                 {/* <Select defaultValue="Male" onValueChange={(v) => setValue("gender", v as any)}>
                   <SelectTrigger>
@@ -611,71 +751,80 @@ function Page() {
                 <Input {...register("mobile")} />
               </Field>
               <Field label="Relation">
-                <CreatableSelect
-                  options={relationshipOptions}
-                  isClearable
-                  placeholder="Select Relationship"
-                  onChange={(option) => {
-                    const value = option?.value;
-                    if (isAllowedRelation(value)) {
-                      setValue("relation", value);
-                    } else {
-                      setValue("relation", "Self");
-                    }
-                  }}
+                <Controller
+                  name="relation"
+                  control={control}
+                  render={({ field }) => (
+                    <CreatableSelect
+                      options={relationshipOptions}
+                      isClearable
+                      placeholder="Select Relationship"
+                      value={relationshipOptions.find((o) => o.value === field.value) ?? null}
+                      onChange={(option) => field.onChange(option?.value ?? "Self")}
+                    />
+                  )}
                 />
               </Field>
               <Field label="Relative Name">
                 <Input type="text" {...register("relative_name")} />
               </Field>
               <Field label="ID Proof Type">
-                <Select
-                  defaultValue="Aadhaar Card"
-                  onValueChange={(v) => setValue("idProofType", v as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Aadhaar Card">Aadhaar Card</SelectItem>
-                    <SelectItem value="PAN Card">PAN Card</SelectItem>
-                    <SelectItem value="Passport">Passport</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="idProofType"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ID proof" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Aadhaar Card">Aadhaar Card</SelectItem>
+                        <SelectItem value="PAN Card">PAN Card</SelectItem>
+                        <SelectItem value="Passport">Passport</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </Field>
               <Field label="ID PROOF NUMBER">
                 <Input type="text" {...register("idProofNumber")} />
               </Field>
               <Field label="Marital Status">
-                <CreatableSelect
-                  options={maritalStatusOptions}
-                  isClearable
-                  placeholder="Select Marital Status"
-                  onChange={(option) => {
-                    const value = option?.value;
-                    if (isAllowedMaritalStatus(value)) {
-                      setValue("marital", value);
-                    } else {
-                      setValue("marital", "Not Specified");
-                    }
-                  }}
+                <Controller
+                  name="marital"
+                  control={control}
+                  render={({ field }) => (
+                    <CreatableSelect
+                      options={maritalStatusOptions}
+                      isClearable
+                      placeholder="Select Marital Status"
+                      value={maritalStatusOptions.find((o) => o.value === field.value) ?? null}
+                      onChange={(option) => field.onChange(option?.value ?? "Not Specified")}
+                    />
+                  )}
                 />
               </Field>
               <Field label="RELIGION">
-                <Select defaultValue="Hindu" onValueChange={(v) => setValue("religion", v as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Hindu">Hindu</SelectItem>
-                    <SelectItem value="Muslim">Muslim</SelectItem>
-                    <SelectItem value="Christian">Christian</SelectItem>
-                    <SelectItem value="Sikh">Sikh</SelectItem>
-                    <SelectItem value="Buddhist">Buddhist</SelectItem>
-                    <SelectItem value="Jain">Jain</SelectItem>
-                    <SelectItem value="Not Specified">Not Specified</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="religion"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value ?? "Hindu"} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select religion" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Hindu">Hindu</SelectItem>
+                        <SelectItem value="Muslim">Muslim</SelectItem>
+                        <SelectItem value="Christian">Christian</SelectItem>
+                        <SelectItem value="Sikh">Sikh</SelectItem>
+                        <SelectItem value="Buddhist">Buddhist</SelectItem>
+                        <SelectItem value="Jain">Jain</SelectItem>
+                        <SelectItem value="Not Specified">Not Specified</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </Field>
               <Field label="Occupation">
                 <Input {...register("occupation")} />
@@ -687,18 +836,18 @@ function Page() {
                 <Input {...register("emergency")} />
               </Field>
               <Field label="Blood Group">
-                <CreatableSelect
-                  options={bloodGroupOptions}
-                  isClearable
-                  placeholder="Select Blood Group"
-                  onChange={(option) => {
-                    const value = option?.value;
-                    if (isAllowedBloodGroup(value)) {
-                      setValue("bloodGroup", value);
-                    } else {
-                      setValue("bloodGroup", "Not Specified");
-                    }
-                  }}
+                <Controller
+                  name="bloodGroup"
+                  control={control}
+                  render={({ field }) => (
+                    <CreatableSelect
+                      options={bloodGroupOptions}
+                      isClearable
+                      placeholder="Select Blood Group"
+                      value={bloodGroupOptions.find((o) => o.value === field.value) ?? null}
+                      onChange={(option) => field.onChange(option?.value ?? "Not Specified")}
+                    />
+                  )}
                 />
               </Field>
               <Field label="Address" className="md:col-span-3" error={errors.address?.message}>
@@ -727,26 +876,36 @@ function Page() {
                 </Select>
               </Field>
               <Field label="Consultant Doctor" error={errors.doctorId?.message}>
-                <Select
-                  onValueChange={(v) => {
-                    setValue("doctorId", v);
-                    const doc = doctors.find((x) => String(x.id) === v);
-                    if (doc) setValue("department", doc.specialization);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={doctorsLoading ? "Loading..." : "Select doctor"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {doctors
-                      .filter((d) => d.is_available)
-                      .map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
-                          Dr. {d.full_name} #{d.user_id} — {d.specialization} (Room {d.room_no})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="doctorId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ?? ""}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        const doc = doctors.find((x) => String(x.id) === value);
+                        if (doc) setValue("department", doc.specialization);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={doctorsLoading ? "Loading..." : "Select doctor"}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors
+                          .filter((d) => d.status === "Active")
+                          .map((d) => (
+                            <SelectItem key={d.id} value={String(d.id)}>
+                              Dr. {d.first_name} {d.last_name} #{d.user_id} — {d.specialization}{" "}
+                              (Room {d.room_no})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </Field>
               <Field label="Department" error={errors.department?.message}>
                 <Input {...register("department")} />
@@ -909,35 +1068,44 @@ function Page() {
                 </Field>
 
                 <Field label="Payment Type">
-                  <Select
-                    defaultValue="Single Paymode"
-                    onValueChange={(v) => setValue("paymentType", v as FormData["paymentType"])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Single Paymode">Single Paymode</SelectItem>
-                      <SelectItem value="Multi Paymode">Multi Paymode</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="paymentType"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? "Single Paymode"}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Single Paymode">Single Paymode</SelectItem>
+                          <SelectItem value="Multi Paymode">Multi Paymode</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </Field>
                 <Field label="PayMode-1">
-                  <Select
-                    defaultValue="CASH"
-                    onValueChange={(v) => setValue("payMode1", v as FormData["payMode1"])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"].map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="payMode1"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value ?? "CASH"} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"].map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </Field>
                 <Field label="Amount-1 (Paid)">
                   <Input type="number" step="0.01" min={0} {...register("amount1")} />
@@ -947,20 +1115,24 @@ function Page() {
                   <Input value={fmt(displayDue)} readOnly className="bg-muted/40 font-medium" />
                 </Field>
                 <Field label="Discount Hospital/Doctor">
-                  <Select
-                    defaultValue="Hospital Discount"
-                    onValueChange={(v) =>
-                      setValue("discountSource", v as FormData["discountSource"])
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Hospital Discount">Hospital Discount</SelectItem>
-                      <SelectItem value="Doctor Discount">Doctor Discount</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="discountSource"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? "Hospital Discount"}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Hospital Discount">Hospital Discount</SelectItem>
+                          <SelectItem value="Doctor Discount">Doctor Discount</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </Field>
                 <Field label="Remark">
                   <Input placeholder="Remark" {...register("remark")} />
@@ -1169,176 +1341,6 @@ function Row({ label, value }: { label: string; value: string }) {
 
 /* ---------------- Print Bill ---------------- */
 
-function printBill(
-  d: FormData,
-  totals: { sub: number; itemDisc: number; totalDisc: number; net: number; due: number },
-  doctorsList: import("@/hooks/useDoctors").Doctor[],
-) {
-  const doctor = doctorsList.find((x) => String(x.id) === String(d.doctorId));
-  const doctorLabel = doctor
-    ? `Dr. ${doctor.full_name} (User #${doctor.user_id}) — ${doctor.specialization}`
-    : "-";
-  const billNo = `BL-${Date.now().toString().slice(-8)}`;
-  const dateStr = new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-
-  const rows = d.items
-    .map((i, idx) => {
-      const net = Math.max(
-        0,
-        (Number(i.qty) || 0) * (Number(i.amount) || 0) - (Number(i.discount) || 0),
-      );
-      return `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${escapeHtml(i.name)}<div class="muted">${escapeHtml(i.category)}${i.code ? " • " + escapeHtml(i.code) : ""}</div></td>
-        <td class="r">${i.qty}</td>
-        <td class="r">₹${fmt(i.amount)}</td>
-        <td class="r">₹${fmt(i.discount)}</td>
-        <td class="r">₹${fmt(net)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  const html = `<!doctype html>
-<html><head><meta charset="utf-8"/>
-<title>Bill ${billNo}</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 24px; }
-  .wrap { max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-  .head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; background: linear-gradient(135deg,#2D5CF2,#5b82ff); color: #fff; }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .logo { width: 44px; height: 44px; border-radius: 10px; background: #fff; color: #2D5CF2; display:flex; align-items:center; justify-content:center; font-weight: 800; font-size: 20px; }
-  .brand h1 { margin: 0; font-size: 18px; }
-  .brand .sub { font-size: 11px; opacity: .9; }
-  .meta { text-align: right; font-size: 12px; }
-  .meta .billno { font-size: 14px; font-weight: 700; }
-  .sect { padding: 16px 22px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 13px; }
-  .grid div span { color: #64748b; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #475569; margin: 0 0 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { padding: 8px 10px; border-bottom: 1px solid #eef2f7; text-align: left; }
-  th { background: #f8fafc; font-size: 11px; text-transform: uppercase; color: #64748b; }
-  td.r, th.r { text-align: right; }
-  .muted { color: #94a3b8; font-size: 11px; }
-  .totals { margin-top: 12px; margin-left: auto; width: 280px; font-size: 13px; }
-  .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
-  .totals .net { border-top: 2px solid #0f172a; margin-top: 6px; padding-top: 8px; font-weight: 700; font-size: 15px; color:#2D5CF2; }
-  .foot { padding: 14px 22px; background: #f8fafc; font-size: 11px; color: #64748b; display:flex; justify-content:space-between; }
-  @media print { body { padding: 0; } .wrap { border: none; } }
-</style></head>
-<body>
-  <div class="wrap">
-    <div class="head">
-      <div class="brand">
-        <div class="logo">M+</div>
-        <div>
-          <h1>MedOS Hospital</h1>
-          <div class="sub">123 Health Avenue, Bengaluru • +91 98765 43210</div>
-        </div>
-      </div>
-      <div class="meta">
-        <div class="billno">Bill # ${billNo}</div>
-        <div>${dateStr}</div>
-        <div>GSTIN: 29ABCDE1234F1Z5</div>
-      </div>
-    </div>
-
-    <div class="sect">
-      <h2>Patient Information</h2>
-      <div class="grid">
-        <div><span>UHID:</span> <b>${escapeHtml(d.uhid)}</b></div>
-        <div><span>Name:</span> <b>${escapeHtml(d.name)}</b></div>
-        <div><span>Gender / DOB:</span> ${escapeHtml(d.gender)} / ${escapeHtml(d.dob || "-")}</div>
-        <div><span>Blood Group:</span> ${escapeHtml(d.bloodGroup)}</div>
-        <div><span>Mobile:</span> ${escapeHtml(d.mobile)}</div>
-        <div><span>Email:</span> ${escapeHtml(d.email || "-")}</div>
-        <div style="grid-column:1/-1"><span>Address:</span> ${escapeHtml(d.address)}</div>
-   <div><span>Doctor:</span> ${escapeHtml(doctorLabel)}</div>
-        <div><span>Department:</span> ${escapeHtml(d.department)}</div>
-        <div><span>Visit Date:</span> ${escapeHtml(d.visitDate)}</div>
-        <div><span>Symptoms:</span> ${escapeHtml(d.symptoms || "-")}</div>
-      </div>
-    </div>
-
-    <div class="sect">
-      <h2>Billing Items</h2>
-      <table>
-        <thead>
-          <tr><th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc</th><th class="r">Net</th></tr>
-        </thead>
-        <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:18px">No items</td></tr>`}</tbody>
-      </table>
-
-      <div style="display:flex; gap:20px; align-items:flex-start; margin-top:12px;">
-        <div style="flex:0 0 180px; text-align:center; padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc;">
-          <div style="font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#64748b; margin-bottom:6px;">Scan for Patient Info</div>
-          <img src="${patientQrUrl(d, billNo, dateStr, doctorLabel)}" alt="Patient QR" style="width:150px;height:150px;background:#fff;border-radius:8px;padding:4px;border:1px solid #e2e8f0"/>
-          <div style="font-size:11px; margin-top:6px; font-weight:600;">${escapeHtml(d.name)}</div>
-          <div style="font-size:10px; color:#64748b;">UHID: ${escapeHtml(d.uhid)}</div>
-        </div>
-        <div class="totals" style="margin:0 0 0 auto;">
-          <div><span>Total Amount</span><span>₹${fmt(totals.sub)}</span></div>
-          <div><span>Item Discount</span><span>− ₹${fmt(totals.itemDisc)}</span></div>
-          <div><span>Bill Discount</span><span>− ₹${fmt(totals.totalDisc - totals.itemDisc)}</span></div>
-          <div><span>Discount Source</span><span>${escapeHtml(d.discountSource)}</span></div>
-          <div class="net"><span>Net Payable</span><span>₹${fmt(totals.net)}</span></div>
-          <div><span>Paid (${escapeHtml(d.payMode1)})</span><span>₹${fmt(Number(d.amount1) || 0)}</span></div>
-          <div><span>Due Amount</span><span>₹${fmt(totals.due)}</span></div>
-        </div>
-      </div>
-      ${d.remark ? `<p class="muted" style="margin-top:10px"><b>Remark:</b> ${escapeHtml(d.remark)}</p>` : ""}
-    </div>
-
-    <div class="foot">
-      <div>This is a computer-generated bill. No signature required.</div>
-      <div>Thank you for visiting MedOS Hospital.</div>
-    </div>
-  </div>
-  <script>window.onload=()=>{setTimeout(()=>window.print(),200);}</script>
-</body></html>`;
-
-  const w = window.open("", "_blank", "width=900,height=1000");
-  if (!w) {
-    toast.error("Pop-up blocked. Allow pop-ups to print the bill.");
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  // silence unused icon
-  void Stethoscope;
-}
-
 function fmt(n: number) {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(n) || 0);
-}
-function patientQrUrl(d: FormData, billNo: string, dateStr: string, doctorName?: string) {
-  const info = [
-    `MedOS Hospital`,
-    `Bill No: ${billNo}`,
-    `Date: ${dateStr}`,
-    `UHID: ${d.uhid}`,
-    `Name: ${d.name}`,
-    `Gender: ${d.gender}`,
-    `DOB: ${d.dob || "-"}`,
-    `Blood Group: ${d.bloodGroup}`,
-    `Mobile: ${d.mobile}`,
-    d.email ? `Email: ${d.email}` : "",
-    `Address: ${d.address}`,
-    doctorName ? `Doctor: ${doctorName}` : "",
-    `Department: ${d.department}`,
-    `Visit Date: ${d.visitDate}`,
-    d.symptoms ? `Symptoms: ${d.symptoms}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=${encodeURIComponent(info)}`;
-}
-function escapeHtml(s: string | undefined) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
-  );
 }

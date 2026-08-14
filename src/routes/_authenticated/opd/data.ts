@@ -1,6 +1,12 @@
 export const patientTypes = [
-  { value: "new patient", label: "New Patient" },
-  { value: "existing patient", label: "Existing Patient" },
+  { value: "New Patient", label: "New Patient" },
+  { value: "Existing Patient", label: "Existing Patient" },
+];
+
+export const genderOptions = [
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" },
+  { value: "Other", label: "Other" },
 ];
 
 export const titleOptions = [
@@ -10,12 +16,6 @@ export const titleOptions = [
   { value: "Master", label: "Master" },
   { value: "Baby", label: "Baby" },
   { value: "Dr.", label: "Dr." },
-];
-
-export const genderOptions = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
 ];
 
 export const relationshipOptions = [

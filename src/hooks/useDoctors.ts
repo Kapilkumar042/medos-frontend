@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { opdApi } from "@/lib/opd-api";
 
 export interface Doctor {
+  first_name: string;
+  last_name: string;
   id: number;
   full_name: string;
   hospital_id: number;

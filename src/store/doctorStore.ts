@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getDoctors, createDoctor, updateDoctor, deleteDoctor } from "@/api/doctors";
+import { getDoctors, createDoctor, updateDoctor, deleteDoctor, importDoctors } from "@/api/doctors";
 
 export interface Doctor {
   id: number;
@@ -51,6 +51,8 @@ interface DoctorState {
   updateDoctor: (id: number, data: any) => Promise<void>;
 
   removeDoctor: (id: number) => Promise<void>;
+
+  importDoctors: (file: File) => Promise<void>;
 }
 
 export const useDoctorStore = create<DoctorState>((set) => ({
@@ -96,5 +98,11 @@ export const useDoctorStore = create<DoctorState>((set) => ({
     set((state) => ({
       doctors: state.doctors.filter((d) => d.id !== id),
     }));
+  },
+
+  importDoctors: async (file) => {
+    await importDoctors(file);
+    const doctors = await getDoctors();
+    set({ doctors });
   },
 }));

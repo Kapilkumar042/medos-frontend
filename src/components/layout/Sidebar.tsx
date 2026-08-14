@@ -19,9 +19,12 @@ import {
   Wallet,
   UserCog,
   Settings,
+  Building2,
+  Briefcase,
   ChevronDown,
   Activity,
   Sparkles,
+  QrCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
@@ -43,14 +46,21 @@ const groups: Group[] = [
     icon: LayoutDashboard,
     items: [
       { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
-      { label: "Analytics", to: "/analytics", icon: Activity },
-      { label: "Reports", to: "/reports", icon: FileText },
+      // { label: "Analytics", to: "/analytics", icon: Activity },
+      // { label: "Reports", to: "/reports", icon: FileText },
     ],
   },
   {
     title: "Master",
     icon: UserCog,
-    items: [{ label: "Doctor Profile", to: "/master/doctor-profile", icon: Stethoscope }],
+    items: [
+      { label: "Doctor Profile", to: "/master/doctor-profile", icon: Stethoscope },
+      { label: "Lab Tests", to: "/master/lab-tests", icon: TestTube },
+      { label: "Radiology Tests", to: "/master/radiology-tests", icon: ScanLine },
+      { label: "Services", to: "/master/services", icon: Briefcase },
+      { label: "Medicines", to: "/master/medicines", icon: Pill },
+      { label: "Departments", to: "/master/departments", icon: Building2 },
+    ],
   },
   {
     title: "OPD",
@@ -59,11 +69,11 @@ const groups: Group[] = [
       { label: "Appointments", to: "/opd/appointments", icon: CalendarDays },
       { label: "Registration", to: "/opd/registration", icon: Users },
       { label: "Waiting Area", to: "/opd/queue", icon: Clock },
-      { label: "Token Queue", to: "/opd/tokens", icon: ListOrdered },
+      // { label: "Token Queue", to: "/opd/tokens", icon: ListOrdered },
       { label: "Prescriptions", to: "/opd/prescriptions", icon: FileText },
       { label: "Patient List", to: "/opd/patients", icon: Receipt },
-      { label: "Patient EMR", to: "/opd/emr", icon: HeartPulse },
-      { label: "Certificates", to: "/opd/certificates", icon: Award },
+      // { label: "Patient EMR", to: "/opd/emr", icon: HeartPulse },
+      // { label: "Certificates", to: "/opd/certificates", icon: Award },
     ],
   },
   {
@@ -104,24 +114,24 @@ const groups: Group[] = [
       { label: "Stock", to: "/pharmacy/stock", icon: Pill },
     ],
   },
-  {
-    title: "Billing",
-    icon: Receipt,
-    items: [
-      { label: "IPD Billing", to: "/billing/ipd", icon: Receipt },
-      { label: "Expenses", to: "/billing/expenses", icon: Wallet },
-      { label: "Doctor Share", to: "/billing/doctor-share", icon: Wallet },
-    ],
-  },
-  {
-    title: "HR",
-    icon: UserCog,
-    items: [
-      { label: "Staff", to: "/hr/staff", icon: Users },
-      { label: "Attendance", to: "/hr/attendance", icon: Clock },
-      { label: "Payroll", to: "/hr/payroll", icon: Wallet },
-    ],
-  },
+  // {
+  //   title: "Billing",
+  //   icon: Receipt,
+  //   items: [
+  //     { label: "IPD Billing", to: "/billing/ipd", icon: Receipt },
+  //     { label: "Expenses", to: "/billing/expenses", icon: Wallet },
+  //     { label: "Doctor Share", to: "/billing/doctor-share", icon: Wallet },
+  //   ],
+  // },
+  // {
+  //   title: "HR",
+  //   icon: UserCog,
+  //   items: [
+  //     { label: "Staff", to: "/hr/staff", icon: Users },
+  //     { label: "Attendance", to: "/hr/attendance", icon: Clock },
+  //     { label: "Payroll", to: "/hr/payroll", icon: Wallet },
+  //   ],
+  // },
   {
     title: "Settings",
     icon: Settings,
@@ -130,6 +140,11 @@ const groups: Group[] = [
       { label: "Roles", to: "/settings/roles", icon: UserCog },
       { label: "Permissions", to: "/settings/permissions", icon: Settings },
       { label: "Hospital Setup", to: "/settings/hospital", icon: Settings },
+      {
+        label: "Hospital QR",
+        to: "/settings/hospital-qr",
+        icon: QrCode,
+      },
     ],
   },
 ];

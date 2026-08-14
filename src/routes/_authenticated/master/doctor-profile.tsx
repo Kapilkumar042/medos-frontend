@@ -111,7 +111,7 @@ const genderOptions = [
   { value: "other", label: "Other" },
 ];
 function Page() {
-  const { doctors, fetchDoctors, loading, removeDoctor, addDoctor, updateDoctor } =
+  const { doctors, fetchDoctors, loading, removeDoctor, addDoctor, updateDoctor, importDoctors } =
     useDoctorStore();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -153,34 +153,14 @@ function Page() {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     try {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
-      let ok = 0,
-        fail = 0;
-      for (const raw of rows) {
-        const norm: Record<string, unknown> = {};
-        for (const k of Object.keys(raw)) norm[k.trim()] = raw[k];
-        const parsed = schema.safeParse({
-          ...norm,
-          gender: (norm.gender as string) || "Male",
-          status: (norm.status as string) || "Active",
-          experience_years: Number(norm.experience_years ?? 0),
-          normal_fee: Number(norm.normal_fee ?? 0),
-          on_call_fee: Number(norm.on_call_fee ?? 0),
-          emergency_fee: Number(norm.emergency_fee ?? 0),
-          follow_up_fee: Number(norm.follow_up_fee ?? 0),
-        });
-        if (parsed.success) {
-          addDoctor(parsed.data);
-          ok++;
-        } else fail++;
-      }
-      toast.success(`Imported ${ok} doctor(s)${fail ? `, ${fail} skipped` : ""}`);
+      await importDoctors(file);
+      await fetchDoctors(); // refresh the list after import
+      toast.success("Imported doctors successfully");
     } catch (err) {
-      toast.error("Failed to read Excel file");
+      console.error(err);
+      toast.error("Failed to import doctors");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }

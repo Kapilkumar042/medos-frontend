@@ -4,6 +4,9 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_APP_API_URL,
+  headers: {
+    "ngrok-skip-browser-warning": "true",
+  },
 });
 
 // Attach token to every request automatically
@@ -19,7 +22,24 @@ export const opdApi = {
   // Patients
   listPatients: () => api.get("/opd/patients").then((r) => r.data),
 
-  getPatient: (id: string) => api.get(`/opd/patients/${id}`).then((r) => r.data),
+  getPatient: (id: string) =>
+    api.get(`/opd/patients/${id}`).then((r) => {
+      const p = r.data;
+      return {
+        ...p,
+        id: String(p.id),
+        uhid: p.uhid,
+        opdNo: p.opd_no ?? p.opdNo, // ← opd_no from backend
+        bloodGroup: p.blood_group ?? p.bloodGroup,
+        doctorId: String(p.doctor_id ?? p.doctorId ?? ""),
+        dateTime: p.date_time
+          ? p.date_time.slice(0, 10) // strip time portion for date input
+          : (p.dateTime ?? ""),
+        idProofType: p.id_proof_type ?? p.idProofType,
+        idProofNumber: p.id_proof_number ?? p.idProofNumber,
+        visitDate: p.visit_date ?? p.visitDate ?? "",
+      };
+    }),
 
   createPatient: (data: any) => {
     const payload = {
@@ -55,7 +75,7 @@ export const opdApi = {
     };
     return api.post("/opd/patients", payload).then((r) => r.data);
   },
-  listDoctors: () => api.get("/doctors/").then((r) => r.data),
+  listDoctors: () => api.get("/doctors").then((r) => r.data),
 
   updatePatient: (id: string, data: any) =>
     api.put(`/opd/patients/${id}`, data).then((r) => r.data),
@@ -79,4 +99,12 @@ export const opdApi = {
 
   // Bills
   createBill: (data: any) => api.post("/opd/bills", data).then((r) => r.data),
+
+  listBills: () =>
+    api.get("/opd/bills").then((r) => {
+      const list = Array.isArray(r.data) ? r.data : (r.data.results ?? r.data.data ?? []);
+      return list;
+    }),
+
+  getBill: (id: string | number) => api.get(`/opd/bills/${id}`).then((r) => r.data),
 };

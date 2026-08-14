@@ -1,4 +1,5 @@
 import axios from "axios";
+import api from "./api";
 
 const API_URL = import.meta.env.VITE_APP_API_URL;
 
@@ -7,15 +8,12 @@ const authHeaders = () => ({
 });
 
 export const getDoctors = async () => {
-  const res = await axios.get(`${API_URL}/doctors`, {
-    headers: authHeaders(),
-  });
-
+  const res = await api.get("/doctors");
   return res.data;
 };
 
 export const createDoctor = async (payload: any) => {
-  const res = await axios.post(`${API_URL}/doctors`, payload, {
+  const res = await api.post("/doctors", payload, {
     headers: authHeaders(),
   });
 
@@ -23,7 +21,7 @@ export const createDoctor = async (payload: any) => {
 };
 
 export const updateDoctor = async (id: number, payload: any) => {
-  const res = await axios.put(`${API_URL}/doctors/${id}`, payload, {
+  const res = await api.put(`/doctors/${id}`, payload, {
     headers: authHeaders(),
   });
 
@@ -31,8 +29,22 @@ export const updateDoctor = async (id: number, payload: any) => {
 };
 
 export const deleteDoctor = async (id: number) => {
-  const res = await axios.delete(`${API_URL}/doctors/${id}`, {
+  const res = await api.delete(`/doctors/${id}`, {
     headers: authHeaders(),
+  });
+
+  return res.data;
+};
+
+export const importDoctors = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await api.post(`/doctors/import`, formData, {
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "multipart/form-data",
+    },
   });
 
   return res.data;
