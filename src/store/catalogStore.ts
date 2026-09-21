@@ -23,7 +23,7 @@ export interface CatalogItem {
 
   // Radiology
   modality?: string;
-  bodyPart?: string;
+  body_part?: string;
 
   // Medicine
   manufacturer?: string;
@@ -104,13 +104,18 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     }));
   },
   importCatalog: async (kind, file) => {
-    const items = await catalogApi.importCatalog(kind, file);
-    set((state) => ({
-      items: {
-        ...state.items,
-        [kind]: [...items, ...state.items[kind]],
-      },
-    }));
-    return items;
+    const response = await catalogApi.importCatalog(kind, file);
+    await get().loadCatalog(kind);
+    return {
+    message: response?.message ?? "Imported successfully",
+    count: response?.count ?? 0,
+  };
+    // set((state) => ({
+    //   items: {
+    //     ...state.items,
+    //     [kind]: [...items, ...state.items[kind]],
+    //   },
+    // }));
+    // return items;
   },
 }));

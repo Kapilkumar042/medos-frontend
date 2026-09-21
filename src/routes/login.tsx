@@ -52,7 +52,7 @@ function LoginPage() {
     try {
       await login(data.email, data.password);
       toast.success("Welcome back!");
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/opd/registration" });
     } catch {
       toast.error("Login failed");
     } finally {
@@ -74,7 +74,7 @@ function LoginPage() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <div className="font-semibold tracking-tight">MedOS</div>
+              <div className="font-semibold tracking-tight">Ncuresoft</div>
               <div className="text-[10px] uppercase tracking-widest opacity-70">Hospital ERP</div>
             </div>
           </div>
@@ -102,7 +102,7 @@ function LoginPage() {
           </div>
         </div>
 
-        <div className="relative text-xs text-white/50">© 2026 MedOS Health Systems</div>
+        <div className="relative text-xs text-white/50">© 2026 Ncuresoft Health Systems</div>
       </div>
 
       {/* Right form */}
@@ -115,7 +115,7 @@ function LoginPage() {
         >
           <div className="rounded-3xl bg-card border border-border p-8 shadow-elegant">
             <h2 className="text-2xl font-semibold tracking-tight">Welcome back</h2>
-            <p className="text-sm text-muted-foreground mt-1">Sign in to continue to MedOS</p>
+            <p className="text-sm text-muted-foreground mt-1">Sign in to continue to Ncuresoft</p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
               <div>

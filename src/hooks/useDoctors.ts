@@ -11,10 +11,10 @@ export interface Doctor {
   specialization: string;
   qualification: string;
   experience_years: number;
-  consultation_fee: number;
+  normal_fee: number;
   registration_no: string;
   room_no: string;
-  is_available: boolean;
+  status: boolean;
 }
 
 export function useDoctors() {

@@ -4,6 +4,7 @@ import {
   useFieldArray,
   useWatch,
   type Control,
+  type FieldErrors,
   type UseFormRegister,
   type UseFormSetValue,
 } from "react-hook-form";
@@ -42,23 +43,48 @@ import {
   maritalStatusOptions,
   relationshipOptions,
 } from "./data";
+import { useAuthStore } from "@/store/authStore";
+import { useCatalogStore } from "@/store/catalogStore";
 import { openBillPreview, type BillPrintData } from "@/lib/opd-bill-print";
 const searchSchema = z.object({
   edit: z.coerce.string().optional(),
   billing: z.coerce.number().optional(),
   print: z.coerce.number().optional(),
 });
+type Visit = {
+  id: number;
+  patient_id: number | string;
+  doctor_id: number;
+  department?: string;
+  visit_date: string;
+  symptoms?: string;
+  notes?: string;
+};
+
+type Bill = {
+  id: number;
+  patient_id: number | string;
+  items?: FormData["items"] | string;
+  total_amount?: number;
+  net_amount?: number;
+  due_amount?: number;
+  paid_amount?: number;
+  total_discount?: number;
+  payment_mode?: FormData["payMode1"];
+  discount_source?: FormData["discountSource"];
+  remark?: string;
+};
 
 export const Route = createFileRoute("/_authenticated/opd/registration")({
   component: Page,
   validateSearch: (s) => searchSchema.parse(s),
 });
 
-type BillCategory = "Advance" | "Lab Test" | "Radiology" | "Other" | "Doctor Fee";
+type BillCategory = "Advance" | "Lab Test" | "Radiology" | "Other" | "Medicine" | "Consultation fee";
 
 const billItem = z.object({
-  category: z.enum(["Advance", "Lab Test", "Radiology", "Other", "Doctor Fee"]),
-  name: z.string().min(1, "Required"),
+  category: z.enum(["Advance", "Lab Test", "Radiology", "Other","Medicine", "Consultation fee"]),
+  name: z.string().optional(),
   code: z.string().optional(),
   qty: z.coerce.number().min(1),
   amount: z.coerce.number().min(0),
@@ -77,29 +103,25 @@ const schema = z.object({
   patient_type: z.enum(["New Patient", "Existing Patient"]),
   relation: z.enum(["Self", "Spouse", "Child", "Parent", "Sibling", "Wife", "Brother"]),
   dob: z.string().min(1, "Required"),
-  age: z.coerce.number().min(0).optional(),
-  dateTime: z.string().min(1, "Required"),
+  ageYears: z.coerce.number().int().min(0),
+  ageMonths: z.coerce.number().int().min(0),
+  ageDays: z.coerce.number().int().min(0),
+  dateTime: z.string().optional(),
   mobile: z.string().min(10, "Min 10 digits"),
   relative_name: z.string().optional(),
   email: z.string().email().or(z.literal("")).optional(),
-  address: z.string().min(2, "Required"),
+  address: z.string().optional(),
   bloodGroup: z.string(),
   marital: z.string().optional(),
-  occupation: z.string().optional(),
   emergency: z.string().optional(),
   doctorId: z.string().optional(),
-  department: z.string().min(1, "Required"),
+  department: z.string().optional(),
   consultant: z.string().optional(),
   idProofType: z.string().optional(),
   idProofNumber: z.string().optional(),
-  state: z.string().optional(),
   district: z.string().optional(),
-  city_town: z.string().optional(),
-  religion: z.string().optional(),
-  pincode: z.string().optional(),
-  education: z.string().optional(),
   reference: z.string().optional(),
-  visitDate: z.string().min(1, "Required"),
+  visitDate: z.string().optional(),
   symptoms: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(billItem).min(1),
@@ -114,28 +136,23 @@ const schema = z.object({
   discountSource: z.enum(["Hospital Discount", "Doctor Discount"]),
 });
 type FormData = z.infer<typeof schema>;
-
-const LAB_CATALOG = [
-  { code: "LAB-CBC", name: "CBC – Complete Blood Count", price: 350 },
-  { code: "LAB-LFT", name: "LFT – Liver Function Test", price: 650 },
-  { code: "LAB-KFT", name: "KFT – Kidney Function Test", price: 700 },
-  { code: "LAB-HBA1C", name: "HbA1c", price: 550 },
-  { code: "LAB-LIPID", name: "Lipid Profile", price: 800 },
-  { code: "LAB-TSH", name: "TSH – Thyroid", price: 450 },
-  { code: "LAB-URINE", name: "Urine Routine", price: 200 },
-  { code: "LAB-FBS", name: "Fasting Blood Sugar", price: 150 },
-];
-const RADIO_CATALOG = [
-  { code: "RAD-XR-CH", name: "X-Ray Chest PA", price: 400 },
-  { code: "RAD-XR-KUB", name: "X-Ray KUB", price: 450 },
-  { code: "RAD-USG-ABD", name: "USG Abdomen", price: 1200 },
-  { code: "RAD-CT-HEAD", name: "CT Scan Head", price: 3500 },
-  { code: "RAD-CT-CHEST", name: "CT Scan Chest", price: 4500 },
-  { code: "RAD-MRI-BRAIN", name: "MRI Brain", price: 6500 },
-  { code: "RAD-MRI-SPINE", name: "MRI Spine", price: 7000 },
-];
-
 function Page() {
+  const loadCatalog = useCatalogStore((state) => state.loadCatalog);
+const labItems = useCatalogStore((state) => state.items.lab);
+const radiologyItems = useCatalogStore((state) => state.items.radiology);
+const medicineItems = useCatalogStore((state) => state.items.medicine);
+const serviceItems = useCatalogStore((state) => state.items.service);
+  const hospitalName = useAuthStore((state) => state.hospital?.name ?? "Hospital");
+  const onInvalid = (formErrors: FieldErrors<FormData>) => {
+    console.error("FORM BLOCKED:", formErrors);
+    toast.error("Form validation failed. Check the console.");
+  };
+  const [visitMode, setVisitMode] = useState<"new" | "existing">("new");
+const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null);
+const [selectedBillId, setSelectedBillId] = useState<number | null>(null);
+const [visitHistory, setVisitHistory] = useState<any[]>([]);
+const [billHistory, setBillHistory] = useState<any[]>([]);
+  const [submitAction, setSubmitAction] = useState<"save" | "print">("save");
   const today = new Date().toISOString().slice(0, 10);
   const { doctors, loading: doctorsLoading } = useDoctors();
   console.log("doctors", doctors);
@@ -143,8 +160,10 @@ function Page() {
   const [apiPatient, setApiPatient] = useState<any>(null);
 
   const search = Route.useSearch();
-  const [billCategory, setBillCategory] = useState<BillCategory>("Advance");
+  const [billCategory, setBillCategory] = useState<BillCategory>("Consultation fee");
   const [zeroBill, setZeroBill] = useState(false);
+  const [latestVisit, setLatestVisit] = useState<Visit | null>(null);
+  const [latestBill, setLatestBill] = useState<Bill | null>(null);
   const navigate = useNavigate();
 
   const editId = search.edit;
@@ -173,7 +192,9 @@ function Page() {
       name: "",
       mobile: "",
       dob: "",
-      age: 0,
+      ageYears: 0,
+      ageMonths: 0,
+      ageDays: 0,
       address: "",
       doctorId: "",
       department: "",
@@ -184,7 +205,7 @@ function Page() {
       dateTime: today,
       visitDate: today,
       patient_type: "New Patient",
-      bloodGroup: "O+",
+      bloodGroup: "",
       district: "Bulandshahr",
       gstPct: 0,
       totalDiscountAmt: 0,
@@ -196,18 +217,17 @@ function Page() {
       discountSource: "Hospital Discount",
       items: [
         {
-          category: "Advance",
-          name: "OPD Advance",
+          category: "Consultation fee",
+          name: "OPD Consultation",
           code: "",
           qty: 1,
-          amount: 500,
+          amount: 0,
           discount: 0,
           remarks: "",
         },
       ],
     },
   });
-  // ...existing code...
 
   const allowedSalutations = ["Mr.", "Mrs.", "Miss.", "Master", "Baby", "Dr."] as const;
   function isAllowedSalutation(value: any): value is (typeof allowedSalutations)[number] {
@@ -276,15 +296,18 @@ function Page() {
   function isAllowedBloodGroup(value: any): value is (typeof allowedBloodGroups)[number] {
     return allowedBloodGroups.includes(value);
   }
-  // ...existing code...
+  
   const patientData = existing ?? apiPatient;
+  
   useEffect(() => {
     if (!patientData) return;
-
+   const patientAge = Number(patientData.age ?? 0);
+const patientDob =
+  patientData.dob || dobFromAge(patientAge, 0, 0);
     reset({
       uhid: patientData.uhid,
-      abha: patientData.abha,
-      aadhaar: patientData.aadhaar,
+      abha: patientData.abha??"",
+      aadhaar: patientData.aadhaar??"",
       opdNo: patientData.opdNo,
       name: patientData.name,
       gender: isAllowedGender(patientData.gender) ? patientData.gender : "Male",
@@ -293,41 +316,39 @@ function Page() {
         ? patientData.patient_type
         : "New Patient",
       relation: isAllowedRelation(patientData.relation) ? patientData.relation : "Self",
-      dob: patientData.dob ?? "",
-      dateTime: patientData.date_time ?? patientData.dateTime ?? today,
+      // dob: patientData.dob ?? "",
+      dob: patientDob,
+      ageYears: patientData.age ?? 0,
+      ageMonths: 0,
+      ageDays: 0,
+      dateTime: patientData.date_time ?? patientData.date_time ?? today,
       mobile: patientData.mobile ?? "",
-      relative_name: patientData.relative_name,
+      relative_name: patientData.relative_name??"",
       email: patientData.email ?? "",
       address: patientData.address ?? "",
       bloodGroup: isAllowedBloodGroup(patientData.blood_group ?? patientData.bloodGroup)
         ? (patientData.blood_group ?? patientData.bloodGroup)
         : "Not Specified",
       marital: isAllowedMaritalStatus(patientData.marital) ? patientData.marital : "Not Specified",
-      occupation: patientData.occupation,
-      emergency: patientData.emergency,
+      emergency: patientData.emergency??"",
       // doctor_id from API is a number, coerce to string
       doctorId: String(patientData.doctor_id ?? patientData.doctorId ?? ""),
       department: patientData.department ?? "",
       consultant: patientData.consultant,
       idProofType: patientData.id_proof_type ?? patientData.idProofType,
       idProofNumber: patientData.id_proof_number ?? patientData.idProofNumber,
-      state: patientData.state,
       district: patientData.district ?? "Bulandshahr",
-      city_town: patientData.city_town,
-      religion: patientData.religion,
-      pincode: patientData.pincode,
-      education: patientData.education,
       reference: patientData.reference,
-      visitDate: patientData.visit_date ?? patientData.visitDate ?? today,
+      visitDate: patientData.visit_date ?? patientData.visit_date ?? today,
       symptoms: patientData.symptoms,
       notes: patientData.notes,
       items: patientData.items ?? [
         {
-          category: "Advance",
-          name: "OPD Advance",
+          category: "Consultation fee",
+          name: "Consultation fee",
           code: "",
           qty: 1,
-          amount: 500,
+          amount: 0,
           discount: 0,
           remarks: "",
         },
@@ -346,6 +367,9 @@ function Page() {
         ? patientData.discountSource
         : "Hospital Discount",
     });
+    if (patientDob) {
+      syncAgeFromDob(patientDob);
+    }
   }, [patientData, reset]);
 
   useEffect(() => {
@@ -358,26 +382,71 @@ function Page() {
         .catch(console.error);
     }
   }, [editId]);
-
-  // ...existing code...
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
-  const items = watch("items");
+useEffect(() => {
+  Promise.all([
+    loadCatalog("lab"),
+    loadCatalog("radiology"),
+    loadCatalog("service"),
+    loadCatalog("medicine"),
+  ]).catch(() => {
+    toast.error("Failed to load catalog items");
+  });
+}, [loadCatalog]);
+  // const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, replace } = useFieldArray({
+  control,
+  name: "items",
+});
+  const items = useWatch({
+  control,
+  name: "items",
+  defaultValue: [],
+});
   const totalDiscountAmt = Number(watch("totalDiscountAmt") || 0);
   const totalDiscountPct = Number(watch("totalDiscountPct") || 0);
   const amount1 = Number(watch("amount1") || 0);
 
   const totals = useMemo(() => {
-    const sub = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.amount) || 0), 0);
-    const itemDisc = items.reduce((s, i) => s + (Number(i.discount) || 0), 0);
-    const afterItemDisc = Math.max(0, sub - itemDisc);
-    const pctDisc = (afterItemDisc * totalDiscountPct) / 100;
-    const totalDisc = itemDisc + totalDiscountAmt + pctDisc;
-    const net = Math.max(0, sub - totalDisc);
-    const due = Math.max(0, net - amount1);
-    return { sub, itemDisc, totalDisc, net, due };
-  }, [items, totalDiscountAmt, totalDiscountPct, amount1]);
-  console.log("thisi");
+    const sub = items.reduce(
+      (sum, item) => sum + (Number(item.qty) || 0) * (Number(item.amount) || 0),
+      0,
+    );
 
+    const itemDisc = items.reduce((sum, item) => sum + (Number(item.discount) || 0), 0);
+
+    const discountBase = Math.max(0, sub - itemDisc);
+    const totalDisc = Math.min(discountBase, totalDiscountAmt);
+    const net = Math.max(0, sub - itemDisc - totalDisc);
+    const due = Math.max(0, net - amount1);
+
+    return { sub, itemDisc, totalDisc, net, due, discountBase };
+  }, [items, totalDiscountAmt, amount1]);
+
+  const handleDiscountAmountChange = (value: string) => {
+    const amount = Math.max(0, Number(value) || 0);
+    const percentage = totals.discountBase > 0 ? (amount / totals.discountBase) * 100 : 0;
+
+    setValue("totalDiscountAmt", Number(amount.toFixed(2)), {
+      shouldValidate: true,
+    });
+
+    setValue("totalDiscountPct", Number(percentage.toFixed(2)), {
+      shouldValidate: true,
+    });
+  };
+
+  const handleDiscountPercentageChange = (value: string) => {
+    const percentage = Math.min(100, Math.max(0, Number(value) || 0));
+    const amount = (totals.discountBase * percentage) / 100;
+
+    setValue("totalDiscountPct", Number(percentage.toFixed(2)), {
+      shouldValidate: true,
+    });
+
+    setValue("totalDiscountAmt", Number(amount.toFixed(2)), {
+      shouldValidate: true,
+    });
+  };
   async function openPatientPrint(patientId: number | string): Promise<boolean> {
     // Open immediately so the browser does not block the popup.
     const printWindow = window.open("", "_blank");
@@ -409,40 +478,41 @@ function Page() {
     }
   }
 
+  const openWhatsApp = (
+    phone: string,
+    patientName: string,
+    appointmentDate: string,
+    appointmentTime: string,
+  ) => {
+    const digits = phone.replace(/\D/g, "");
+    const whatsappPhone = digits.length === 10 ? `91${digits}` : digits;
+
+    const message = `Dear ${patientName},
+
+Your appointment has been booked successfully at ${hospitalName}.
+
+Date: ${appointmentDate}
+
+Thank you,
+${hospitalName}`;
+
+    window.open(
+      `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
   // onSubmit — remove uhid/opdNo from API call, they come back from backend
   const onSubmit = async (d: FormData) => {
+    console.log("SUBMIT STARTED", {
+      editId,
+      submitAction,
+      latestVisit,
+      latestBill,
+      data: d,
+    });
     try {
-      // const patient = await opdApi.createPatient({
-      //   name: d.name,
-      //   gender: d.gender,
-      //   dob: d.dob,
-      //   mobile: d.mobile,
-      //   address: d.address,
-      //   bloodGroup: d.bloodGroup,
-      //   doctorId: d.doctorId,
-      //   department: d.department,
-      //   consultant: d.consultant,
-      //   email: d.email,
-      //   aadhaar: d.aadhaar,
-      //   abha: d.abha,
-      //   state: d.state,
-      //   district: d.district,
-      //   city_town: d.city_town,
-      //   pincode: d.pincode,
-      //   occupation: d.occupation,
-      //   marital: d.marital,
-      //   emergency: d.emergency,
-      //   reference: d.reference,
-      //   salutation: d.salutation,
-      //   patient_type: d.patient_type,
-      //   relation: d.relation,
-      //   relative_name: d.relative_name,
-      //   dateTime: d.dateTime,
-      //   idProofType: d.idProofType,
-      //   idProofNumber: d.idProofNumber,
-      //   religion: d.religion,
-      //   education: d.education,
-      // });
+      console.log("Calling patient API");
       const patientPayload = {
         name: d.name,
         gender: d.gender,
@@ -450,16 +520,12 @@ function Page() {
         mobile: d.mobile,
         address: d.address,
         blood_group: d.bloodGroup,
-        doctor_id: d.doctorId,
+        doctor_id: d.doctorId ? Number(d.doctorId) : null,
         department: d.department,
         email: d.email,
-        aadhaar: d.aadhaar,
-        abha: d.abha,
-        state: d.state,
+        aadhaar: d.aadhaar||null,
+        abha: d.abha||null,
         district: d.district,
-        city_town: d.city_town,
-        pincode: d.pincode,
-        occupation: d.occupation,
         marital: d.marital,
         emergency: d.emergency,
         reference: d.reference,
@@ -470,53 +536,92 @@ function Page() {
         date_time: d.dateTime,
         id_proof_type: d.idProofType,
         id_proof_number: d.idProofNumber,
-        religion: d.religion,
-        education: d.education,
         consultant: d.consultant,
       };
 
-      const patient = editId
-        ? await opdApi.updatePatient(editId, patientPayload)
-        : await opdApi.createPatient(patientPayload);
+       let patient;
+    if (editId) {
+      patient = await opdApi.updatePatient(editId, patientPayload);
+    } else {
+      patient = await opdApi.createPatient(patientPayload);
+    }
 
-      const patientPrintOpened = await openPatientPrint(patient.id);
-      if (editId) {
-        updatePatient(editId, {
-          ...patient,
-          id: String(patient.id),
-          bloodGroup: patient.blood_group ?? patient.bloodGroup,
-          doctorId: String(patient.doctor_id ?? patient.doctorId ?? ""),
-          dateTime: patient.date_time ?? patient.dateTime,
-          visitDate: patient.visit_date ?? patient.visitDate,
-        });
-      }
-      const visit = await opdApi.createVisit({
+      // const patientPrintOpened = await openPatientPrint(patient.id);
+      // if (editId) {
+      //   updatePatient(editId, {
+      //     ...patient,
+      //     id: String(patient.id),
+      //     bloodGroup: patient.blood_group ?? patient.bloodGroup,
+      //     doctorId: String(patient.doctor_id ?? patient.doctorId ?? ""),
+      //     dateTime: patient.date_time ?? patient.dateTime,
+      //     visitDate: patient.visit_date ?? patient.visitDate,
+      //   });
+      // }
+      const visitPayload = {
         patient_id: patient.id,
         doctor_id: Number(d.doctorId),
-        department: d.department,
+        department: d.department ?? "",
         visit_date: d.visitDate,
         symptoms: d.symptoms,
         notes: d.notes,
-      });
+      };
+        let visit;
+
+    if (visitMode === "existing" && selectedVisitId) {
+      visit = await opdApi.updateVisit(selectedVisitId, visitPayload);
+    } else {
+      visit = await opdApi.createVisit(visitPayload);
+    }
 
       let createdBill: any = null;
 
       if (showBilling) {
-        createdBill = await opdApi.createBill({
-          patient_id: patient.id,
-          visitId: visit.id,
-          items: d.items,
-          total_amount: totals.sub,
-          total_discount: totals.totalDisc,
-          net_amount: totals.net,
-          paid_amount: d.amount1,
-          due_amount: totals.due,
-          payment_mode: d.payMode1,
-          discount_source: d.discountSource,
-          remark: d.remark,
-        });
-      }
+        // const billPayload = {
+        //   patient_id: patient.id,
+        //   visitId: visit.id,
+        //   items: d.items,
+        //   total_amount: totals.sub,
+        //   total_discount: totals.totalDisc,
+        //   net_amount: totals.net,
+        //   paid_amount: d.amount1,
+        //   due_amount: totals.due,
+        //   payment_mode: d.payMode1,
+        //   discount_source: d.discountSource,
+        //   remark: d.remark,
+        // };
 
+        const billPayload = {
+  patient_id: patient.id,
+  visit_id: visit?.id ?? null,
+  total_amount: Number(totals.sub),
+  total_discount: Number(totals.totalDisc),
+  net_amount: Number(totals.net),
+  paid_amount: Number(d.amount1),
+  payment_mode: d.payMode1,
+  remark: d.remark ?? "",
+  items: d.items.map((item) => ({
+    category: item.category,
+    name: item.name,
+    code: item.code ?? "",
+    qty: Number(item.qty),
+    amount: Number(item.amount),
+    discount: Number(item.discount),
+    remarks: item.remarks ?? "",
+  })),
+};
+
+        if (selectedBillId) {
+        await opdApi.updateBill(selectedBillId, billPayload);
+      } else {
+        await opdApi.createBill(billPayload);
+      }
+      }
+      if (submitAction === "print") {
+        await openPatientPrint(patient.id);
+      }
+if (submitAction === "save") {
+  openWhatsApp(d.mobile, d.name, d.visitDate, "");
+}
       if (showBilling) {
         const billPreviewPayload: BillPrintData = {
           ...d,
@@ -524,15 +629,11 @@ function Page() {
           opdNo: patient?.opd_no ?? patient?.opdNo ?? d.opdNo,
         };
 
-        const previewOpened = openBillPreview(billPreviewPayload, totals, doctors, {
-          autoPrint: true,
-          billNo: createdBill?.bill_no ?? createdBill?.billNo ?? createdBill?.id ?? undefined,
-        });
-
+        
         toast.success(
-          patientPrintOpened
-            ? "Patient registered successfully. Patient receipt opened."
-            : "Patient registered successfully",
+          submitAction === "print"
+            ? "Patient saved and receipt opened"
+            : "Patient saved successfully",
         );
       } else {
         toast.success("Patient registered successfully");
@@ -554,19 +655,8 @@ function Page() {
 
   const handlePreviewPrint = () => {
     const d = getValues();
-    openBillPreview(d as BillPrintData, totals, doctors, { autoPrint: false });
   };
-  const headerTitle = isEdit ? (showBilling ? "OPD Billing" : "Edit Patient") : "OPD Registration";
-  const headerDesc = isEdit
-    ? showBilling
-      ? "Generate bill for the selected OPD patient."
-      : "Update patient information."
-    : "Register new walk-in patients with billing.";
-  const saveLabel = isEdit
-    ? showBilling
-      ? "Save & Generate Bill"
-      : "Update Patient"
-    : "Save & Generate Bill";
+  const headerTitle = isEdit ? "Edit Patient" : "New Registration";
 
   useEffect(() => {
     if (Object.keys(errors).length > 0) {
@@ -574,88 +664,204 @@ function Page() {
     }
   }, [errors]);
 
-  function dobFromAge(years: number) {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() - years);
-    return date.toISOString().slice(0, 10);
+  // function dobFromAge(years: number) {
+  //   const date = new Date();
+  //   date.setFullYear(date.getFullYear() - years);
+  //   return date.toISOString().slice(0, 10);
+  // }
+  function dobFromAge(years: number, months: number, days: number) {
+    const today = new Date();
+
+    const dob = new Date(
+      today.getFullYear() - years,
+      today.getMonth() - months,
+      today.getDate() - days,
+    );
+
+    return dob.toISOString().slice(0, 10);
   }
   const displaySub = zeroBill ? 0 : totals.sub;
   const displayTotalDisc = zeroBill ? totals.sub : totals.totalDisc;
   const displayNet = zeroBill ? 0 : totals.net;
   const displayDue = zeroBill ? 0 : totals.due;
 
-  useEffect(() => {
+//   useEffect(() => {
+//     if (!editId) return;
+
+//     const loadRelatedData = async () => {
+//       try {
+//         const [visits, bills] = await Promise.all([opdApi.listVisits(), opdApi.listBills()]);
+
+//         const patientVisits = visits
+//           .filter((visit: any) => String(visit.patient_id) === String(editId))
+//           .sort(
+//             (a: any, b: any) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime(),
+//           );
+
+//         const patientBills = bills
+//           .filter((bill: any) => String(bill.patient_id) === String(editId))
+//           .sort((a: any, b: any) => b.id - a.id);
+
+//         const visit = patientVisits[0] ?? null;
+//         const bill = patientBills[0] ?? null;
+
+//         setLatestVisit(visit);
+//         setLatestBill(bill);
+
+//         if (visit) {
+//           setValue("visitDate", visit.visit_date ?? today);
+//           setValue("symptoms", visit.symptoms ?? "");
+//           setValue("notes", visit.notes ?? "");
+//           setValue("doctorId", String(visit.doctor_id ?? ""));
+//           setValue("department", visit.department ?? "");
+//         }
+
+//        const billSummary = patientBills[0] ?? null;
+
+// if (billSummary) {
+//   const bill = await opdApi.getBill(billSummary.id);
+
+//   const billItems =
+//     typeof bill.items === "string"
+//       ? JSON.parse(bill.items)
+//       : Array.isArray(bill.items)
+//         ? bill.items
+//         : [];
+
+//   setLatestBill({
+//     ...billSummary,
+//     ...bill,
+//   });
+
+//   setValue("amount1", Number(bill.paid_amount ?? 0));
+//   setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
+//   setValue("totalDiscountPct", 0);
+//   setValue("payMode1", bill.payment_mode ?? "CASH");
+//   setValue("discountSource", bill.discount_source ?? "Hospital Discount");
+//   setValue("remark", bill.remark ?? "");
+
+//   if (billItems.length > 0) {
+//     replace(billItems);
+//   } else {
+//     replace([
+//       {
+//         category: "Consultation fee",
+//         name: "OPD Consultation",
+//         code: "",
+//         qty: 1,
+//         amount: Number(bill.total_amount ?? 0),
+//         discount: Number(bill.total_discount ?? 0),
+//         remarks: "",
+//       },
+//     ]);
+//   }
+// }
+//       } catch (error) {
+//         console.error("Failed to load visit or bill data", error);
+//       }
+//     };
+
+//     loadRelatedData();
+//   }, [editId, setValue, replace, today]);
+  
+useEffect(() => {
+  if (!editId && !apiPatient?.id) return;
+
+  const patientId = editId ?? apiPatient?.id;
+  if (!patientId) return;
+
+  const loadHistory = async () => {
+    try {
+      const [visits, bills] = await Promise.all([
+        opdApi.listVisits(),
+        opdApi.listBills(),
+      ]);
+
+      const patientVisits = visits.filter(
+        (v: any) => String(v.patient_id) === String(patientId)
+      );
+
+      const patientBills = bills.filter(
+        (b: any) => String(b.patient_id) === String(patientId)
+      );
+
+      setVisitHistory(patientVisits.sort(
+        (a: any, b: any) =>
+          new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
+      ));
+
+      setBillHistory(patientBills.sort((a: any, b: any) => b.id - a.id));
+    } catch (err) {
+      console.error("History load failed", err);
+    }
+  };
+
+  loadHistory();
+}, [editId, apiPatient?.id]);
+useEffect(() => {
+  if (!selectedBillId) return;
+
+  const loadSelectedBill = async () => {
+    const bill = await opdApi.getBill(selectedBillId);
+    const items = Array.isArray(bill.items) ? bill.items : [];
+
+    replace(items);
+    setValue("amount1", Number(bill.paid_amount ?? 0));
+    setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
+    setValue("payMode1", bill.payment_mode ?? "CASH");
+    setValue("remark", bill.remark ?? "");
+  };
+
+  loadSelectedBill();
+}, [selectedBillId]);
+useEffect(() => {
     if (!editId) return;
 
-    // Fetch patient
     opdApi.getPatient(editId).then(setApiPatient).catch(console.error);
-
-    // Fetch latest visit for this patient
-    opdApi
-      .listVisits()
-      .then((visits: any[]) => {
-        const latest = visits
-          .filter((v) => String(v.patient_id) === String(editId))
-          .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())[0];
-        if (latest) {
-          setValue("visitDate", latest.visit_date ?? today);
-          setValue("symptoms", latest.symptoms ?? "");
-          setValue("notes", latest.notes ?? "");
-          setValue("doctorId", String(latest.doctor_id ?? ""));
-          setValue("department", latest.department ?? "");
-        }
-      })
-      .catch(console.error);
-
-    // Fetch latest bill for this patient
-    opdApi
-      .listBills()
-      .then((bills: any[]) => {
-        const latest = bills
-          .filter((b) => String(b.patient_id) === String(editId))
-          .sort((a, b) => b.id - a.id)[0];
-        if (latest) {
-          setValue("amount1", latest.paid_amount ?? 0);
-          setValue("totalDiscountAmt", latest.total_discount ?? 0);
-          setValue("payMode1", latest.payment_mode ?? "CASH");
-          setValue("discountSource", latest.discount_source ?? "Hospital Discount");
-          setValue("remark", latest.remark ?? "");
-          // Restore bill items if stored
-          if (Array.isArray(latest.items) && latest.items.length > 0) {
-            setValue("items", latest.items);
-          }
-        }
-      })
-      .catch(console.error);
   }, [editId]);
-  const patientTypeValue = patientTypes.find((o) => o.value === watch("patient_type")) ?? null;
-  const salutationValue = titleOptions.find((o) => o.value === watch("salutation")) ?? null;
-  const genderValue = genderOptions.find((o) => o.value === watch("gender")) ?? null;
+  const syncAgeFromDob = (dobValue: string) => {
+    const dob = new Date(`${dobValue}T00:00:00`);
+    if (Number.isNaN(dob.getTime())) return;
+
+    const today = new Date();
+    let years = today.getFullYear() - dob.getFullYear();
+    let months = today.getMonth() - dob.getMonth();
+    let days = today.getDate() - dob.getDate();
+
+    if (days < 0) {
+      months -= 1;
+      days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+    }
+
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    setValue("ageYears", Math.max(0, years));
+    setValue("ageMonths", Math.max(0, months));
+    setValue("ageDays", Math.max(0, days));
+  };
+
+  const syncDobFromAge = (years: number, months: number, days: number) => {
+    setValue("ageYears", years);
+    setValue("ageMonths", months);
+    setValue("ageDays", days);
+    setValue("dob", dobFromAge(years, months, days), {
+      shouldValidate: true,
+    });
+  };
+
   return (
     <>
-      <PageHeader title={headerTitle} description={headerDesc}>
-        {showBilling && (
-          <Button variant="outline" size="sm" type="button" onClick={handlePreviewPrint}>
-            <Printer className="h-4 w-4 mr-1.5" /> Preview Bill
-          </Button>
-        )}
-        <Button
-          size="sm"
-          form="reg-form"
-          type="submit"
-          className="gradient-blue text-white border-0 hover:opacity-90"
-        >
-          <Save className="h-4 w-4 mr-1.5" /> {saveLabel}
-        </Button>
-      </PageHeader>
-
-      <form id="reg-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <PageHeader title={headerTitle}></PageHeader>
+      <form id="reg-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="lg:col-span-2 rounded-2xl bg-card border border-border shadow-soft p-5 space-y-5"
         >
-          <Section title="Search & Create ABHA ID">
+          {/* <Section title="Search & Create ABHA ID">
             <div className="grid md:grid-cols-3 gap-3">
               <Field label="ABHA Number">
                 <Input {...register("abha")} placeholder="14-digit ABHA" />
@@ -666,11 +872,11 @@ function Page() {
               <Field label="Mobile" error={errors.mobile?.message}>
                 <Input {...register("mobile")} placeholder="+91 9876543211" />
               </Field>
-              {/* <Button size="sm" form="reg-form" type="submit" className="gradient-blue text-white border-0 hover:opacity-90">
+              <Button size="sm" form="reg-form" type="submit" className="gradient-blue text-white border-0 hover:opacity-90">
            Create ABHA ID
-        </Button> */}
+        </Button>
             </div>
-          </Section>
+          </Section> */}
           <Section title="Patient Information">
             <div className="grid md:grid-cols-4 gap-3">
               {isEdit && (
@@ -697,9 +903,6 @@ function Page() {
                   )}
                 />
               </Field>
-              {/* <Field label="OPD NO" error={errors.opdNo?.message}>
-                <Input {...register("opdNo")} />
-              </Field> */}
               <Field label="SALUTATION">
                 <Controller
                   name="salutation"
@@ -725,19 +928,6 @@ function Page() {
                     />
                   )}
                 />
-                {/* <Select defaultValue="Mr." onValueChange={(v) => setValue("salutation", v as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Mr.">Mr.</SelectItem>
-                    <SelectItem value="Mrs.">Mrs.</SelectItem>
-                    <SelectItem value="Miss.">Miss</SelectItem>
-                    <SelectItem value="Master">Master</SelectItem>
-                    <SelectItem value="Baby">Baby</SelectItem>
-                    <SelectItem value="Dr.">Dr</SelectItem>
-                  </SelectContent>
-                </Select> */}
               </Field>
               <Field label="Patient Name" error={errors.name?.message}>
                 <Input
@@ -760,58 +950,73 @@ function Page() {
                     />
                   )}
                 />
-                {/* <Select defaultValue="Male" onValueChange={(v) => setValue("gender", v as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select> */}
               </Field>
-              <Field label="CONSULTATION DATE & TIME" error={errors.dateTime?.message}>
+              <Field label="REGISTRATION DATE & TIME" error={errors.dateTime?.message}>
                 <Input type="date" {...register("dateTime")} />
               </Field>
               <Field label="Date of Birth" error={errors.dob?.message}>
-                <Input type="date" {...register("dob")} />
-              </Field>
-              <Field label="Age (years)">
                 <Input
-                  type="number"
-                  min={0}
-                  max={120}
-                  step={1}
-                  {...register("age", { valueAsNumber: true })}
-                  onChange={(e) => {
-                    const years = Number(e.target.value);
-                    if (!Number.isNaN(years)) {
-                      setValue("dob", dobFromAge(years));
-                    }
-                  }}
+                  type="date"
+                  {...register("dob", {
+                    onChange: (event) => syncAgeFromDob(event.target.value),
+                  })}
                 />
+              </Field>
+              <Field label="Age(yyyy-mm-dd)">
+                <div className="grid grid-cols-3 gap-0">
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Years"
+                    {...register("ageYears", { valueAsNumber: true })}
+                    onChange={(event) =>
+                      syncDobFromAge(
+                        Number(event.target.value) || 0,
+                        Number(watch("ageMonths")) || 0,
+                        Number(watch("ageDays")) || 0,
+                      )
+                    }
+                  />
+
+                  <Input
+                    type="number"
+                    min={0}
+                    max={11}
+                    placeholder="Months"
+                    {...register("ageMonths", { valueAsNumber: true })}
+                    onChange={(event) =>
+                      syncDobFromAge(
+                        Number(watch("ageYears")) || 0,
+                        Number(event.target.value) || 0,
+                        Number(watch("ageDays")) || 0,
+                      )
+                    }
+                  />
+
+                  <Input
+                    type="number"
+                    min={0}
+                    max={30}
+                    placeholder="Days"
+                    {...register("ageDays", { valueAsNumber: true })}
+                    onChange={(event) =>
+                      syncDobFromAge(
+                        Number(watch("ageYears")) || 0,
+                        Number(watch("ageMonths")) || 0,
+                        Number(event.target.value) || 0,
+                      )
+                    }
+                  />
+                </div>
               </Field>
               <Field label="Mobile" error={errors.mobile?.message}>
                 <Input {...register("mobile")} />
               </Field>
-              <Field label="Relation">
-                <Controller
-                  name="relation"
-                  control={control}
-                  render={({ field }) => (
-                    <CreatableSelect
-                      options={relationshipOptions}
-                      isClearable
-                      placeholder="Select Relationship"
-                      value={relationshipOptions.find((o) => o.value === field.value) ?? null}
-                      onChange={(option) => field.onChange(option?.value ?? "Self")}
-                    />
-                  )}
-                />
-              </Field>
-              <Field label="Relative Name">
+              <Field label="Guardian Name">
                 <Input type="text" {...register("relative_name")} />
+              </Field>
+              <Field label="Guardian/Emergency Contact">
+                <Input {...register("emergency")} />
               </Field>
               <Field label="ID Proof Type">
                 <Controller
@@ -849,36 +1054,8 @@ function Page() {
                   )}
                 />
               </Field>
-              <Field label="RELIGION">
-                <Controller
-                  name="religion"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value ?? "Hindu"} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select religion" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Hindu">Hindu</SelectItem>
-                        <SelectItem value="Muslim">Muslim</SelectItem>
-                        <SelectItem value="Christian">Christian</SelectItem>
-                        <SelectItem value="Sikh">Sikh</SelectItem>
-                        <SelectItem value="Buddhist">Buddhist</SelectItem>
-                        <SelectItem value="Jain">Jain</SelectItem>
-                        <SelectItem value="Not Specified">Not Specified</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </Field>
-              <Field label="Occupation">
-                <Input {...register("occupation")} />
-              </Field>
               <Field label="Email">
                 <Input type="email" {...register("email")} />
-              </Field>
-              <Field label="Emergency Contact">
-                <Input {...register("emergency")} />
               </Field>
               <Field label="Blood Group">
                 <Controller
@@ -902,6 +1079,14 @@ function Page() {
           </Section>
 
           <Section title="Visit Details">
+            <div className="flex gap-2">
+  <Button type="button" variant={visitMode === "new" ? "default" : "outline"} onClick={() => setVisitMode("new")}>
+    New Visit
+  </Button>
+  <Button type="button" variant={visitMode === "existing" ? "default" : "outline"} onClick={() => setVisitMode("existing")}>
+    Existing Visit
+  </Button>
+</div>
             <div className="grid md:grid-cols-3 gap-3">
               <Field label="Visit Purpose">
                 <Select
@@ -916,7 +1101,8 @@ function Page() {
                     <SelectItem value="Lab Test">Lab Test</SelectItem>
                     <SelectItem value="Radiology">Radiology Test</SelectItem>
                     <SelectItem value="Other">Other Services</SelectItem>
-                    <SelectItem value="Doctor Fee">Doctor Fees</SelectItem>
+                    <SelectItem value="Medicine">Medicine</SelectItem>
+                    <SelectItem value="Consultation fee">Consultation fee</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -927,11 +1113,36 @@ function Page() {
                   render={({ field }) => (
                     <Select
                       value={field.value ?? ""}
+                      // onValueChange={(value) => {
+                      //   field.onChange(value);
+                      //   const doc = doctors.find((x) => String(x.id) === value);
+                      //   if (doc) setValue("department", doc.specialization);
+                      // }}
                       onValueChange={(value) => {
-                        field.onChange(value);
-                        const doc = doctors.find((x) => String(x.id) === value);
-                        if (doc) setValue("department", doc.specialization);
-                      }}
+  field.onChange(value);
+
+  const doctor = doctors.find((item) => String(item.id) === value);
+
+  if (doctor) {
+    setValue("department", doctor.specialization);
+
+    const consultationIndex = items.findIndex(
+      (item) => item.category === "Consultation fee",
+    );
+
+    if (consultationIndex !== -1) {
+      setValue(
+        `items.${consultationIndex}.name`,
+        `Dr. ${doctor.first_name} ${doctor.last_name} Consultation`,
+      );
+      setValue(`items.${consultationIndex}.code`, `DOC-${doctor.id}`);
+      setValue(
+        `items.${consultationIndex}.amount`,
+        doctor.consultation_fee ?? doctor.normal_fee ?? 0,
+      );
+    }
+  }
+}}
                     >
                       <SelectTrigger>
                         <SelectValue
@@ -940,11 +1151,11 @@ function Page() {
                       </SelectTrigger>
                       <SelectContent>
                         {doctors
-                          .filter((d) => d.status === "Active")
-                          .map((d) => (
-                            <SelectItem key={d.id} value={String(d.id)}>
-                              Dr. {d.first_name} {d.last_name} #{d.user_id} — {d.specialization}{" "}
-                              (Room {d.room_no})
+                          .filter((doctor) => doctor.status)
+                          .map((doctor) => (
+                            <SelectItem key={doctor.id} value={String(doctor.id)}>
+                              Dr. {doctor.first_name} {doctor.last_name} #{doctor.user_id}
+                              (Room {doctor.room_no}) - (Fee: {inr(doctor.normal_fee)})
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -955,17 +1166,116 @@ function Page() {
               <Field label="Department" error={errors.department?.message}>
                 <Input {...register("department")} />
               </Field>
+              {isEdit && visitHistory.length > 0 && (
+    <div className="mb-4">
+      <Field label="Select Visit to Edit">
+        <Select
+         value={selectedVisitId ? String(selectedVisitId) : ""}
+ onValueChange={(v) => {
+  const val = v ? Number(v) : null;
+  setSelectedVisitId(val);
+
+  if (!val) {
+    setValue("visitDate", today);
+    setValue("symptoms", "");
+    setValue("notes", "");
+    setValue("doctorId", "");
+    setValue("department", "");
+    return;
+  }
+
+  const visit = visitHistory.find((x) => x.id === val);
+  if (!visit) return;
+
+  setValue("visitDate", visit.visit_date ?? today);
+  setValue("symptoms", visit.symptoms ?? "");
+  setValue("notes", visit.notes ?? "");
+  setValue("doctorId", String(visit.doctor_id ?? ""));
+  setValue("department", visit.department ?? "");
+}}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Choose visit to edit" />
+          </SelectTrigger>
+          <SelectContent>
+            {visitHistory.map((visit) => (
+              <SelectItem key={visit.id} value={String(visit.id)}>
+                {visit.visit_date} - {visit.department}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+    </div>
+  )}
+  {isEdit && billHistory.length > 0 && (
+  <div className="mb-4">
+    <Field label="Select Bill to Edit">
+      <Select
+  value={selectedBillId ? String(selectedBillId) : ""}
+  onValueChange={async (v) => {
+  const val = v ? Number(v) : null;
+  setSelectedBillId(val);
+
+  if (!val) {
+    replace([
+      {
+        category: "Consultation fee",
+        name: "OPD Consultation",
+        code: "",
+        qty: 1,
+        amount: 0,
+        discount: 0,
+        remarks: "",
+      },
+    ]);
+    setValue("amount1", 0);
+    setValue("totalDiscountAmt", 0);
+    setValue("payMode1", "CASH");
+    setValue("remark", "");
+    return;
+  }
+
+  const bill = await opdApi.getBill(val);
+  const items = Array.isArray(bill.items) ? bill.items : [];
+
+  replace(items);
+  setValue("amount1", Number(bill.paid_amount ?? 0));
+  setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
+  setValue("payMode1", bill.payment_mode ?? "CASH");
+  setValue("remark", bill.remark ?? "");
+}}
+>
+        <SelectTrigger>
+          <SelectValue placeholder="Choose bill to edit" />
+        </SelectTrigger>
+        <SelectContent>
+          {billHistory.map((bill) => (
+            <SelectItem key={bill.id} value={String(bill.id)}>
+              Bill #{bill.id} - ₹{bill.net_amount ?? 0}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  </div>
+)}
             </div>
+            
             <div className="flex items-center justify-between mt-4 mb-2">
               <BillTable
-                rows={rowsOf(billCategory)}
-                category={billCategory}
-                register={register}
-                setValue={setValue}
-                control={control}
-                remove={remove}
-                onAdd={() => addRow(billCategory)}
-              />
+  rows={rowsOf(billCategory)}
+  category={billCategory}
+  labItems={labItems}
+  radiologyItems={radiologyItems}
+  serviceItems={serviceItems}
+  medicineItems={medicineItems}
+  register={register}
+  setValue={setValue}
+  control={control}
+  remove={remove}
+  onAdd={() => addRow(billCategory)}
+/>
             </div>
             <div className="grid md:grid-cols-3 gap-3">
               <Field label="Reference Doctor">
@@ -982,69 +1292,9 @@ function Page() {
               </Field>
             </div>
           </Section>
-
-          {/* <Section title="Billing Items">
-            <div className="space-y-2">
-              {fields.map((f, i) => (
-                <div key={f.id} className="grid grid-cols-12 gap-2 items-start">
-                  <Input className="col-span-6" placeholder="Description" {...register(`items.${i}.description`)} />
-                  <Input className="col-span-2" type="number" placeholder="Qty" {...register(`items.${i}.qty`)} />
-                  <Input className="col-span-3" type="number" placeholder="Price" {...register(`items.${i}.price`)} />
-                  <Button type="button" variant="ghost" size="icon" className="col-span-1" onClick={() => remove(i)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ description: "", qty: 1, price: 0 })}>
-                <Plus className="h-4 w-4 mr-1.5" /> Add Item
-              </Button>
-            </div>
-          </Section> */}
         </motion.div>
         {showBilling && (
           <>
-            {/* <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="rounded-2xl bg-card border border-border shadow-soft p-5"
-            > */}
-            {/* <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold">Billing</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Add charges across categories. Lab & Radiology are pickable from catalog.
-                  </p>
-                </div>
-              </div> */}
-
-            {/* <Tabs defaultValue="Advance">
-                <TabsList className="flex flex-wrap h-auto justify-between">
-                  <TabsTrigger value="Advance">Advance</TabsTrigger>
-                  <TabsTrigger value="Lab Test">Lab Test</TabsTrigger>
-                  <TabsTrigger value="Radiology">Radiology Test</TabsTrigger>
-                  <TabsTrigger value="Other">Other Services</TabsTrigger>
-                  <TabsTrigger value="Doctor Fee">Doctor Fees</TabsTrigger>
-                </TabsList>
-
-                {(["Advance", "Lab Test", "Radiology", "Other", "Doctor Fee"] as const).map(
-                  (cat) => (
-                    <TabsContent key={cat} value={cat} className="mt-4">
-                      <BillTable
-                        rows={rowsOf(cat)}
-                        category={cat}
-                        register={register}
-                        setValue={setValue}
-                        control={control}
-                        remove={remove}
-                        onAdd={() => addRow(cat)}
-                      />
-                    </TabsContent>
-                  ),
-                )}
-              </Tabs> */}
-            {/* </motion.div> */}
-
             {/* Bill Summary BELOW the items card */}
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -1074,9 +1324,6 @@ function Page() {
                 <Field label="Total Amount">
                   <Input value={fmt(displaySub)} readOnly className="bg-muted/40" />
                 </Field>
-                <Field label="Item Discount">
-                  <Input value={fmt(displayTotalDisc)} readOnly className="bg-muted/40" />
-                </Field>
                 <Field label="Total Discount (Amt.)">
                   <Input
                     type="number"
@@ -1084,6 +1331,7 @@ function Page() {
                     min={0}
                     placeholder="0"
                     {...register("totalDiscountAmt")}
+                    onChange={(event) => handleDiscountAmountChange(event.target.value)}
                   />
                 </Field>
 
@@ -1095,15 +1343,16 @@ function Page() {
                     max={100}
                     placeholder="0"
                     {...register("totalDiscountPct")}
+                    onChange={(event) => handleDiscountPercentageChange(event.target.value)}
                   />
                 </Field>
-                <Field label="Total Discount">
+                {/* <Field label="Total Discount">
                   <Input
                     value={fmt(displayTotalDisc)}
                     readOnly
                     className="bg-muted/40 text-destructive font-medium"
                   />
-                </Field>
+                </Field> */}
                 <Field label="Net Amount">
                   <Input
                     value={fmt(displayNet)}
@@ -1179,20 +1428,26 @@ function Page() {
                     )}
                   />
                 </Field>
-                <Field label="Remark">
-                  <Input placeholder="Remark" {...register("remark")} />
+                <Field label="Discount Reason">
+                  <Input placeholder="Discount Reason" {...register("remark")} />
                 </Field>
               </div>
 
               <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-border">
-                <Button type="button" variant="outline" onClick={handlePreviewPrint}>
-                  <Printer className="h-4 w-4 mr-1.5" /> Preview Bill
-                </Button>
                 <Button
                   type="submit"
+                  onClick={() => setSubmitAction("save")}
                   className="bg-primary text-primary-foreground hover:opacity-90"
                 >
-                  <Save className="h-4 w-4 mr-1.5" /> Save & Generate Bill
+                  <Save className="h-4 w-4 mr-1.5" /> Save
+                </Button>
+
+                <Button
+                  type="submit"
+                  onClick={() => setSubmitAction("print")}
+                  className="bg-primary text-primary-foreground hover:opacity-90"
+                >
+                  <Printer className="h-4 w-4 mr-1.5" /> Save & Generate Bill
                 </Button>
               </div>
             </motion.div>
@@ -1206,6 +1461,10 @@ function Page() {
 function BillTable({
   rows,
   category,
+  labItems,
+  radiologyItems,
+  serviceItems,
+  medicineItems,
   register,
   setValue,
   control,
@@ -1214,6 +1473,10 @@ function BillTable({
 }: {
   rows: { idx: number }[];
   category: BillCategory;
+  labItems: CatalogItem[];
+  radiologyItems: CatalogItem[];
+  serviceItems: CatalogItem[];
+  medicineItems: CatalogItem[];
   register: UseFormRegister<FormData>;
   setValue: UseFormSetValue<FormData>;
   control: Control<FormData>;
@@ -1221,7 +1484,15 @@ function BillTable({
   onAdd: () => void;
 }) {
   const catalog =
-    category === "Lab Test" ? LAB_CATALOG : category === "Radiology" ? RADIO_CATALOG : null;
+  category === "Lab Test"
+    ? labItems
+    : category === "Radiology"
+      ? radiologyItems
+      : category === "Other"
+        ? serviceItems
+        : category === "Medicine"
+          ? medicineItems
+          : null;
 
   return (
     <div className="space-y-3">
@@ -1268,6 +1539,76 @@ function BillTable({
   );
 }
 
+// function BillRow({
+//   idx,
+//   catalog,
+//   register,
+//   setValue,
+//   control,
+//   remove,
+// }: {
+//   idx: number;
+//   catalog: { code: string; name: string; price: number }[] | null;
+//   register: UseFormRegister<FormData>;
+//   setValue: UseFormSetValue<FormData>;
+//   control: Control<FormData>;
+//   remove: (i: number) => void;
+// }) {
+//   return (
+//     <tr className="border-t border-border">
+//       <td className="px-2 py-1.5">
+//         {catalog ? (
+//           <Select
+//             onValueChange={(v) => {
+//               const it = catalog.find((x) => x.code === v);
+//               if (it) {
+//                 setValue(`items.${idx}.name`, it.name);
+//                 setValue(`items.${idx}.code`, it.code);
+//                 setValue(`items.${idx}.amount`, it.price ?? it.mrp ?? 0);
+//               }
+//             }}
+//           >
+//             <SelectTrigger className="h-9">
+//               <SelectValue placeholder="Select test…" />
+//             </SelectTrigger>
+//             <SelectContent>
+//               {catalog.map((c) => (
+//                 <SelectItem key={c.code} value={c.code}>
+//                   {c.name} — ₹{c.price}
+//                 </SelectItem>
+//               ))}
+//             </SelectContent>
+//           </Select>
+//         ) : (
+//           <Input className="h-9" {...register(`items.${idx}.name`)} placeholder="Item name" />
+//         )}
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <Input className="h-9" {...register(`items.${idx}.code`)} />
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <Input className="h-9" type="number" {...register(`items.${idx}.qty`)} />
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <Input className="h-9" type="number" {...register(`items.${idx}.amount`)} />
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <Input className="h-9" type="number" {...register(`items.${idx}.discount`)} />
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <NetCell idx={idx} control={control} />
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <Input className="h-9" {...register(`items.${idx}.remarks`)} placeholder="Remarks" />
+//       </td>
+//       <td className="px-2 py-1.5">
+//         <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)}>
+//           <Trash2 className="h-4 w-4 text-destructive" />
+//         </Button>
+//       </td>
+//     </tr>
+//   );
+// }
 function BillRow({
   idx,
   catalog,
@@ -1277,33 +1618,62 @@ function BillRow({
   remove,
 }: {
   idx: number;
-  catalog: { code: string; name: string; price: number }[] | null;
+  catalog: { id?: string | number; code?: string | null; name: string; price?: number; mrp?: number }[] | null;
   register: UseFormRegister<FormData>;
   setValue: UseFormSetValue<FormData>;
   control: Control<FormData>;
   remove: (i: number) => void;
 }) {
+  const currentName = useWatch({ control, name: `items.${idx}.name` }) as string | undefined;
+  const currentCode = useWatch({ control, name: `items.${idx}.code` }) as string | undefined;
+
+  const selectedValue = (() => {
+    if (!catalog) return "";
+    const selected = catalog.find((x) => {
+      const itemId = String(x.id ?? "");
+      const itemCode = x.code ? String(x.code) : "";
+      return itemId === String(currentCode ?? "") || itemCode === String(currentCode ?? "") || x.name === currentName;
+    });
+    return selected ? String(selected.id ?? selected.code ?? selected.name) : "";
+  })();
+
   return (
     <tr className="border-t border-border">
       <td className="px-2 py-1.5">
         {catalog ? (
           <Select
+            value={selectedValue}
             onValueChange={(v) => {
-              const it = catalog.find((x) => x.code === v);
-              if (it) {
-                setValue(`items.${idx}.name`, it.name);
-                setValue(`items.${idx}.code`, it.code);
-                setValue(`items.${idx}.amount`, it.price);
-              }
+              const it = catalog.find(
+                (x) => String(x.id ?? x.code ?? x.name) === v,
+              );
+
+              if (!it) return;
+
+              setValue(`items.${idx}.name`, it.name ?? "", {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+              setValue(`items.${idx}.code`, it.code ?? String(it.id ?? ""), {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+              setValue(`items.${idx}.amount`, Number(it.price ?? it.mrp ?? 0), {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
             }}
           >
             <SelectTrigger className="h-9">
-              <SelectValue placeholder="Select test…" />
+              <SelectValue placeholder="Select service…" />
             </SelectTrigger>
             <SelectContent>
               {catalog.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.name} — ₹{c.price}
+                <SelectItem
+                  key={String(c.id ?? c.code ?? c.name)}
+                  value={String(c.id ?? c.code ?? c.name)}
+                >
+                  {c.name} — ₹{c.price ?? c.mrp ?? 0}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1312,24 +1682,31 @@ function BillRow({
           <Input className="h-9" {...register(`items.${idx}.name`)} placeholder="Item name" />
         )}
       </td>
+
       <td className="px-2 py-1.5">
         <Input className="h-9" {...register(`items.${idx}.code`)} />
       </td>
+
       <td className="px-2 py-1.5">
         <Input className="h-9" type="number" {...register(`items.${idx}.qty`)} />
       </td>
+
       <td className="px-2 py-1.5">
         <Input className="h-9" type="number" {...register(`items.${idx}.amount`)} />
       </td>
+
       <td className="px-2 py-1.5">
         <Input className="h-9" type="number" {...register(`items.${idx}.discount`)} />
       </td>
+
       <td className="px-2 py-1.5">
         <NetCell idx={idx} control={control} />
       </td>
+
       <td className="px-2 py-1.5">
         <Input className="h-9" {...register(`items.${idx}.remarks`)} placeholder="Remarks" />
       </td>
+
       <td className="px-2 py-1.5">
         <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)}>
           <Trash2 className="h-4 w-4 text-destructive" />
@@ -1351,7 +1728,7 @@ function NetCell({ idx, control }: { idx: number; control: Control<FormData> }) 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{title}</div>
+      <div className="text-2xl font-bold uppercase tracking-wider text-muted-foreground mb-3">{title}</div>
       {children}
     </div>
   );

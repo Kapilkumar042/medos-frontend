@@ -51,6 +51,7 @@ import { Route as AuthenticatedMasterDepartmentsRouteImport } from './routes/_au
 import { Route as AuthenticatedLabSamplesRouteImport } from './routes/_authenticated/lab/samples'
 import { Route as AuthenticatedLabReportsRouteImport } from './routes/_authenticated/lab/reports'
 import { Route as AuthenticatedLabBookingRouteImport } from './routes/_authenticated/lab/booking'
+import { Route as AuthenticatedIpdPatientsRouteImport } from './routes/_authenticated/ipd/patients'
 import { Route as AuthenticatedIpdNursingRouteImport } from './routes/_authenticated/ipd/nursing'
 import { Route as AuthenticatedIpdDischargeRouteImport } from './routes/_authenticated/ipd/discharge'
 import { Route as AuthenticatedIpdBedsRouteImport } from './routes/_authenticated/ipd/beds'
@@ -62,6 +63,7 @@ import { Route as AuthenticatedBillingOpdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedBillingIpdRouteImport } from './routes/_authenticated/billing/ipd'
 import { Route as AuthenticatedBillingExpensesRouteImport } from './routes/_authenticated/billing/expenses'
 import { Route as AuthenticatedBillingDoctorShareRouteImport } from './routes/_authenticated/billing/doctor-share'
+import { Route as AuthenticatedOpdPatientPatientIdRouteImport } from './routes/_authenticated/opd/patient/$patientId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -297,6 +299,12 @@ const AuthenticatedLabBookingRoute = AuthenticatedLabBookingRouteImport.update({
   path: '/lab/booking',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedIpdPatientsRoute =
+  AuthenticatedIpdPatientsRouteImport.update({
+    id: '/ipd/patients',
+    path: '/ipd/patients',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedIpdNursingRoute = AuthenticatedIpdNursingRouteImport.update({
   id: '/ipd/nursing',
   path: '/ipd/nursing',
@@ -357,6 +365,12 @@ const AuthenticatedBillingDoctorShareRoute =
     path: '/billing/doctor-share',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedOpdPatientPatientIdRoute =
+  AuthenticatedOpdPatientPatientIdRouteImport.update({
+    id: '/opd/patient/$patientId',
+    path: '/opd/patient/$patientId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -378,6 +392,7 @@ export interface FileRoutesByFullPath {
   '/ipd/beds': typeof AuthenticatedIpdBedsRoute
   '/ipd/discharge': typeof AuthenticatedIpdDischargeRoute
   '/ipd/nursing': typeof AuthenticatedIpdNursingRoute
+  '/ipd/patients': typeof AuthenticatedIpdPatientsRoute
   '/lab/booking': typeof AuthenticatedLabBookingRoute
   '/lab/reports': typeof AuthenticatedLabReportsRoute
   '/lab/samples': typeof AuthenticatedLabSamplesRoute
@@ -411,6 +426,7 @@ export interface FileRoutesByFullPath {
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
+  '/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -432,6 +448,7 @@ export interface FileRoutesByTo {
   '/ipd/beds': typeof AuthenticatedIpdBedsRoute
   '/ipd/discharge': typeof AuthenticatedIpdDischargeRoute
   '/ipd/nursing': typeof AuthenticatedIpdNursingRoute
+  '/ipd/patients': typeof AuthenticatedIpdPatientsRoute
   '/lab/booking': typeof AuthenticatedLabBookingRoute
   '/lab/reports': typeof AuthenticatedLabReportsRoute
   '/lab/samples': typeof AuthenticatedLabSamplesRoute
@@ -465,6 +482,7 @@ export interface FileRoutesByTo {
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
+  '/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -488,6 +506,7 @@ export interface FileRoutesById {
   '/_authenticated/ipd/beds': typeof AuthenticatedIpdBedsRoute
   '/_authenticated/ipd/discharge': typeof AuthenticatedIpdDischargeRoute
   '/_authenticated/ipd/nursing': typeof AuthenticatedIpdNursingRoute
+  '/_authenticated/ipd/patients': typeof AuthenticatedIpdPatientsRoute
   '/_authenticated/lab/booking': typeof AuthenticatedLabBookingRoute
   '/_authenticated/lab/reports': typeof AuthenticatedLabReportsRoute
   '/_authenticated/lab/samples': typeof AuthenticatedLabSamplesRoute
@@ -521,6 +540,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/users': typeof AuthenticatedSettingsUsersRoute
+  '/_authenticated/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -544,6 +564,7 @@ export interface FileRouteTypes {
     | '/ipd/beds'
     | '/ipd/discharge'
     | '/ipd/nursing'
+    | '/ipd/patients'
     | '/lab/booking'
     | '/lab/reports'
     | '/lab/samples'
@@ -577,6 +598,7 @@ export interface FileRouteTypes {
     | '/settings/permissions'
     | '/settings/roles'
     | '/settings/users'
+    | '/opd/patient/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -598,6 +620,7 @@ export interface FileRouteTypes {
     | '/ipd/beds'
     | '/ipd/discharge'
     | '/ipd/nursing'
+    | '/ipd/patients'
     | '/lab/booking'
     | '/lab/reports'
     | '/lab/samples'
@@ -631,6 +654,7 @@ export interface FileRouteTypes {
     | '/settings/permissions'
     | '/settings/roles'
     | '/settings/users'
+    | '/opd/patient/$patientId'
   id:
     | '__root__'
     | '/'
@@ -653,6 +677,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ipd/beds'
     | '/_authenticated/ipd/discharge'
     | '/_authenticated/ipd/nursing'
+    | '/_authenticated/ipd/patients'
     | '/_authenticated/lab/booking'
     | '/_authenticated/lab/reports'
     | '/_authenticated/lab/samples'
@@ -686,6 +711,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/permissions'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/users'
+    | '/_authenticated/opd/patient/$patientId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -993,6 +1019,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLabBookingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/ipd/patients': {
+      id: '/_authenticated/ipd/patients'
+      path: '/ipd/patients'
+      fullPath: '/ipd/patients'
+      preLoaderRoute: typeof AuthenticatedIpdPatientsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ipd/nursing': {
       id: '/_authenticated/ipd/nursing'
       path: '/ipd/nursing'
@@ -1070,6 +1103,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingDoctorShareRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/opd/patient/$patientId': {
+      id: '/_authenticated/opd/patient/$patientId'
+      path: '/opd/patient/$patientId'
+      fullPath: '/opd/patient/$patientId'
+      preLoaderRoute: typeof AuthenticatedOpdPatientPatientIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -1088,6 +1128,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIpdBedsRoute: typeof AuthenticatedIpdBedsRoute
   AuthenticatedIpdDischargeRoute: typeof AuthenticatedIpdDischargeRoute
   AuthenticatedIpdNursingRoute: typeof AuthenticatedIpdNursingRoute
+  AuthenticatedIpdPatientsRoute: typeof AuthenticatedIpdPatientsRoute
   AuthenticatedLabBookingRoute: typeof AuthenticatedLabBookingRoute
   AuthenticatedLabReportsRoute: typeof AuthenticatedLabReportsRoute
   AuthenticatedLabSamplesRoute: typeof AuthenticatedLabSamplesRoute
@@ -1121,6 +1162,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsPermissionsRoute: typeof AuthenticatedSettingsPermissionsRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsUsersRoute: typeof AuthenticatedSettingsUsersRoute
+  AuthenticatedOpdPatientPatientIdRoute: typeof AuthenticatedOpdPatientPatientIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1138,6 +1180,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIpdBedsRoute: AuthenticatedIpdBedsRoute,
   AuthenticatedIpdDischargeRoute: AuthenticatedIpdDischargeRoute,
   AuthenticatedIpdNursingRoute: AuthenticatedIpdNursingRoute,
+  AuthenticatedIpdPatientsRoute: AuthenticatedIpdPatientsRoute,
   AuthenticatedLabBookingRoute: AuthenticatedLabBookingRoute,
   AuthenticatedLabReportsRoute: AuthenticatedLabReportsRoute,
   AuthenticatedLabSamplesRoute: AuthenticatedLabSamplesRoute,
@@ -1173,6 +1216,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsPermissionsRoute: AuthenticatedSettingsPermissionsRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsUsersRoute: AuthenticatedSettingsUsersRoute,
+  AuthenticatedOpdPatientPatientIdRoute: AuthenticatedOpdPatientPatientIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -1190,13 +1234,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

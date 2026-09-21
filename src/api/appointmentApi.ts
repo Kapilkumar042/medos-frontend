@@ -26,6 +26,19 @@ export const createAppointment = async (data: any) => {
   const res = await API.post("/api/appointments", data);
   return res.data;
 };
+export const getPublicHospital = async (hospitalId: number) => {
+  const res = await API.get(`/public/appointments/hospitals/${hospitalId}`);
+  return res.data;
+};
+export const createPublicAppointment = async (data: any) => {
+  const res = await API.post("/public/appointments", data);
+  return res.data;
+};
+export const getPublicDoctors = async (hospitalId: number) => {
+  const res = await API.get(`/public/appointments/hospitals/${hospitalId}/doctors`);
+
+  return res.data;
+};
 
 export const updateAppointment = async (id: number, data: any) => {
   const res = await API.put(`/api/appointments/${id}`, data);
@@ -44,6 +57,7 @@ export const updateAppointmentStatus = async (id: number, status: string) => {
 
   return res.data;
 };
+
 export const acceptAppointment = async (id: number) => {
   const res = await API.put(`/api/appointments/${id}/accept`);
 

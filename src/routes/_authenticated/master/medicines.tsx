@@ -4,7 +4,7 @@ import { CatalogManager, type CatalogField } from "@/components/master/CatalogMa
 export const Route = createFileRoute("/_authenticated/master/medicines")({ component: Page });
 
 const fields: CatalogField[] = [
-  { key: "code", label: "Item Code", required: true, placeholder: "MED001" },
+  { key: "code", label: "Item Code", placeholder: "MED001" },
   { key: "name", label: "Medicine Name", required: true, placeholder: "Paracetamol 500mg" },
   { key: "manufacturer", label: "Manufacturer" },
   { key: "strength", label: "Strength", placeholder: "500mg" },

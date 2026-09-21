@@ -20,13 +20,13 @@ import {
   Settings,
   Activity,
 } from "lucide-react";
-import { searchPatients, type Patient } from "@/lib/mock-data";
-import { useState } from "react";
+import { useOpdStore, type OpdPatient } from "@/store/opdStore";
+import { useState, useEffect } from "react";
 
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onPatientSelect: (p: Patient) => void;
+  onPatientSelect: (p: OpdPatient) => void;
 }
 
 const nav = [
@@ -44,8 +44,23 @@ const nav = [
 
 export function CommandPalette({ open, onOpenChange, onPatientSelect }: Props) {
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
-  const patients = searchPatients(q);
+  const { patients, loadPatients } = useOpdStore();
+   const [q, setQ] = useState("");
+  // const patients = searchPatients(q);
+
+useEffect(() => {
+  loadPatients().catch(console.error);
+}, [loadPatients]);
+
+const filteredPatients = patients.filter((patient) => {
+  const query = q.trim().toLowerCase();
+
+  return (
+    patient.name?.toLowerCase().includes(query) ||
+    patient.uhid?.toLowerCase().includes(query) ||
+    patient.mobile?.includes(query)
+  );
+});
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -56,16 +71,23 @@ export function CommandPalette({ open, onOpenChange, onPatientSelect }: Props) {
       />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        {patients.length > 0 && (
+        {filteredPatients.length > 0 && (
           <>
             <CommandGroup heading="Patients">
-              {patients.map((p) => (
+              {filteredPatients.map((p) => (
                 <CommandItem
                   key={p.id}
-                  onSelect={() => {
-                    onPatientSelect(p);
-                    onOpenChange(false);
-                  }}
+onSelect={() => {
+  onOpenChange(false);
+
+  navigate({
+    to: "/opd/registration",
+    search: {
+      edit: String(p.id),
+      billing: 1,
+    } as never,
+  });
+}}
                 >
                   <Users className="mr-2 h-4 w-4" />
                   <span>{p.name}</span>

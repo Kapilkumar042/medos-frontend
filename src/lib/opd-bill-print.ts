@@ -229,7 +229,7 @@ export function openBillPreview(
     <div class="head">
       <div class="head-top">
         <div class="logo">M+</div>
-        <h1>MedOS Hospital</h1>
+        <h1>Ncuresoft Hospital</h1>
       </div>
       <div class="contact">Mobile Number : +91 98765 43210 &nbsp; Email ID : INFO@MEDOSHOSPITAL.COM</div>
       <div class="address">123 HEALTH AVENUE, BENGALURU, KARNATAKA, 560001</div>
@@ -299,7 +299,7 @@ export function openBillPreview(
 
     <div class="foot">
       <div>This is a computer-generated bill. No signature required.</div>
-      <div>Thank you for visiting MedOS Hospital.</div>
+      <div>Thank you for visiting Ncuresoft Hospital.</div>
     </div>
   </div>
   <script>window.onload=()=>{${options.autoPrint ? "setTimeout(()=>window.print(),200);" : ""}}</script>
@@ -321,7 +321,7 @@ function fmt(n: number | string | undefined) {
 }
 function patientQrUrl(d: BillPrintData, billNo: string, dateStr: string, doctorName?: string) {
   const info = [
-    `MedOS Hospital`,
+    `Ncuresoft Hospital`,
     `Bill No: ${billNo}`,
     `Date: ${dateStr}`,
     `UHID: ${d.uhid}`,

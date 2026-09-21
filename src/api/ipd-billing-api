@@ -1,0 +1,74 @@
+import api from "./api";
+
+export interface IPDBillItemPayload {
+  category: string;
+  name: string;
+  qty: number;
+  rate: number;
+  amount: number;
+  discount: number;
+  remarks?: string;
+}
+
+export interface CreateIPDBillPayload {
+  admission_id: number;
+  patient_id: number;
+
+  total_amount: number;
+  discount_amount: number;
+
+  net_amount: number;
+
+  paid_amount: number;
+
+  payment_mode: string;
+
+  remark?: string;
+
+  items: IPDBillItemPayload[];
+}
+
+export const createIPDBill = async (
+  payload: CreateIPDBillPayload
+) => {
+  const response = await api.post(
+    "/api/ipd-billing",
+    payload
+  );
+
+  return response.data;
+};
+
+export const getIPDBills =
+  async () => {
+    const response =
+      await api.get(
+        "/api/ipd-billing"
+      );
+
+    return response.data;
+  };
+
+export const getIPDBill =
+  async (
+    billId: number
+  ) => {
+
+    const response =
+      await api.get(
+        `/api/ipd-billing/${billId}`
+      );
+
+    return response.data;
+  };
+
+export const printIPDBill =
+  (
+    billId: number
+  ) => {
+
+    window.open(
+      `${import.meta.env.VITE_API_URL}/api/ipd-billing/${billId}/print`,
+      "_blank"
+    );
+  };

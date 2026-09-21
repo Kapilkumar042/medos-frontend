@@ -4,7 +4,7 @@ import { CatalogManager, type CatalogField } from "@/components/master/CatalogMa
 export const Route = createFileRoute("/_authenticated/master/services")({ component: Page });
 
 const fields: CatalogField[] = [
-  { key: "code", label: "Service Code", required: true, placeholder: "AMB" },
+  { key: "code", label: "Service Code", placeholder: "AMB" },
   { key: "name", label: "Service Name", required: true },
   {
     key: "category",

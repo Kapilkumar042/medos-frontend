@@ -208,3 +208,19 @@
   color: gray;
   font-weight: 400;
 }
+
+/* Remove number input spinner controls */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+input[type="number"] {
+  appearance: textfield;
+}
+
+input,
+textarea {
+  border-radius: 0 !important;
+}

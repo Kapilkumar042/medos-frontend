@@ -35,6 +35,7 @@ import {
   requeueToken,
   cancelToken,
 } from "@/api/opdQueueApi";
+import { useAuthStore } from "@/store/authStore";
 
 export const Route = createFileRoute("/_authenticated/opd/queue")({
   component: Page,
@@ -63,6 +64,7 @@ interface QueueRecord {
 const UNASSIGNED = "unassigned";
 
 function Page() {
+  const hospitalName = useAuthStore((state) => state.hospital?.name ?? "Hospital");
   const [queue, setQueue] = useState<QueueRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -175,7 +177,7 @@ function Page() {
 
     const message = `Dear ${record.patient.name},
 
-This is an update from Assaka Hospital regarding your OPD queue.
+This is an update from ${hospitalName} regarding your OPD queue.
 
 Token Number: #${record.token_no}
 UHID: ${record.patient.uhid}
@@ -187,8 +189,7 @@ ${statusMessage}
 Please contact the reception desk if you need any help.
 
 Take care,
-Assaka Hospital
-9205962100`;
+${hospitalName}`;
 
     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CatalogManager, type CatalogField } from "@/components/master/CatalogManager";
 export const Route = createFileRoute("/_authenticated/master/lab-tests")({ component: Page });
 const fields: CatalogField[] = [
-  { key: "code", label: "Test Code", required: true, placeholder: "CBC" },
+  { key: "code", label: "Test Code", placeholder: "CBC" },
   { key: "name", label: "Test Name", required: true, placeholder: "Complete Blood Count" },
   {
     key: "category",

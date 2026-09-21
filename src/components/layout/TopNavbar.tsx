@@ -29,16 +29,17 @@ import { Badge } from "@/components/ui/badge";
 import { useUIStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { useSearchStore } from "@/store/searchStore";
-import { searchPatients, type Patient } from "@/lib/mock-data";
+import { useOpdStore, type OpdPatient } from "@/store/opdStore";
 import { cn } from "@/lib/utils";
 
 interface Props {
   onMenu: () => void;
-  onPatientSelect: (p: Patient) => void;
+  onPatientSelect: (p: OpdPatient) => void;
   onCommandOpen: () => void;
 }
 
 export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
+  const { patients, loadPatients } = useOpdStore();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
@@ -47,6 +48,7 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
   const navigate = useNavigate();
 
   const [now, setNow] = useState(new Date());
+  
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(id);
@@ -91,14 +93,40 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onCommandOpen]);
 
-  const results = debounced ? searchPatients(debounced) : [];
+useEffect(() => {
+  loadPatients().catch(console.error);
+}, [loadPatients]);
 
-  const handleSelect = (p: Patient) => {
-    addRecent(p.name);
-    setOpen(false);
-    setQ("");
-    onPatientSelect(p);
-  };
+const query = debounced.trim().toLowerCase();
+
+const results = query
+  ? patients.filter(
+      (patient) =>
+        patient.name?.toLowerCase().includes(query) ||
+        patient.uhid?.toLowerCase().includes(query) ||
+        patient.mobile?.includes(query),
+    )
+  : [];
+
+  // const handleSelect = (p: Patient) => {
+  //   addRecent(p.name);
+  //   setOpen(false);
+  //   setQ("");
+  //   onPatientSelect(p);
+  // };
+  const handleSelect = (patient: OpdPatient) => {
+  addRecent(patient.name);
+  setOpen(false);
+  setQ("");
+
+  navigate({
+    to: "/opd/registration",
+    search: {
+      edit: String(patient.id),
+      billing: 1,
+    } as never,
+  });
+};
 
   return (
     <header className="sticky top-0 z-30 h-16 glass-strong border-b border-border">
@@ -167,7 +195,7 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium truncate">{p.name}</div>
                             <div className="text-xs text-muted-foreground truncate">
-                              {p.uhid} • {p.gender} • {p.age}y • {p.mobile}
+                              {p.uhid} • {p.gender} • {p.mobile}
                             </div>
                           </div>
                           <Badge variant="outline" className="text-[10px]">{p.bloodGroup}</Badge>

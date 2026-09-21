@@ -49,7 +49,7 @@ function Page() {
           <div className="text-center mb-6">
             <Award className="h-10 w-10 mx-auto text-secondary mb-2" />
             <div className="text-lg font-semibold">{type}</div>
-            <div className="text-xs text-muted-foreground">MedOS Hospital</div>
+            <div className="text-xs text-muted-foreground">Ncuresoft Hospital</div>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">
             This is to certify that <span className="font-medium text-foreground">[Patient Name]</span> (UHID: <span className="font-mono">[UHID]</span>) was examined on <span className="font-medium text-foreground">[Date]</span> and is hereby issued a <strong>{type}</strong> as per medical assessment.

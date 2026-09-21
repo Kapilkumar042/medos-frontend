@@ -383,7 +383,7 @@ function Page() {
           className="rounded-2xl bg-card border border-border p-6 shadow-soft h-fit"
         >
           <div className="text-center pb-4 border-b border-border mb-4">
-            <div className="font-bold tracking-tight">MedOS Hospital</div>
+            <div className="font-bold tracking-tight">Ncuresoft Hospital</div>
             <div className="text-xs text-muted-foreground">Prescription</div>
           </div>
 

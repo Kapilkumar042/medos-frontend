@@ -41,27 +41,16 @@ interface Group {
 }
 
 const groups: Group[] = [
-  {
-    title: "Overview",
-    icon: LayoutDashboard,
-    items: [
-      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
-      // { label: "Analytics", to: "/analytics", icon: Activity },
-      // { label: "Reports", to: "/reports", icon: FileText },
-    ],
-  },
-  {
-    title: "Master",
-    icon: UserCog,
-    items: [
-      { label: "Doctor Profile", to: "/master/doctor-profile", icon: Stethoscope },
-      { label: "Lab Tests", to: "/master/lab-tests", icon: TestTube },
-      { label: "Radiology Tests", to: "/master/radiology-tests", icon: ScanLine },
-      { label: "Services", to: "/master/services", icon: Briefcase },
-      { label: "Medicines", to: "/master/medicines", icon: Pill },
-      { label: "Departments", to: "/master/departments", icon: Building2 },
-    ],
-  },
+  // {
+  //   title: "Overview",
+  //   icon: LayoutDashboard,
+  //   items: [
+  //     { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
+  //     // { label: "Analytics", to: "/analytics", icon: Activity },
+  //     // { label: "Reports", to: "/reports", icon: FileText },
+  //   ],
+  // },
+ 
   {
     title: "OPD",
     icon: Stethoscope,
@@ -81,6 +70,7 @@ const groups: Group[] = [
     icon: BedDouble,
     items: [
       { label: "Admission", to: "/ipd/admission", icon: Users },
+      { label: "Patient List", to: "/ipd/patients", icon: Users },
       { label: "Bed Management", to: "/ipd/beds", icon: BedDouble },
       { label: "Discharge", to: "/ipd/discharge", icon: FileText },
       { label: "Nursing", to: "/ipd/nursing", icon: HeartPulse },
@@ -112,6 +102,18 @@ const groups: Group[] = [
       { label: "Inventory", to: "/pharmacy/inventory", icon: Pill },
       { label: "Sales", to: "/pharmacy/sales", icon: Receipt },
       { label: "Stock", to: "/pharmacy/stock", icon: Pill },
+    ],
+  },
+   {
+    title: "Master",
+    icon: UserCog,
+    items: [
+      { label: "Doctor Profile", to: "/master/doctor-profile", icon: Stethoscope },
+      { label: "Lab Tests", to: "/master/lab-tests", icon: TestTube },
+      { label: "Radiology Tests", to: "/master/radiology-tests", icon: ScanLine },
+      { label: "Services", to: "/master/services", icon: Briefcase },
+      { label: "Medicines", to: "/master/medicines", icon: Pill },
+      { label: "Departments", to: "/master/departments", icon: Building2 },
     ],
   },
   // {
@@ -177,7 +179,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="overflow-hidden">
             <div className="font-semibold text-sidebar-foreground/80 text-sm tracking-tight">
-              MedOS
+              Ncuresoft
             </div>
             <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">
               Hospital ERP

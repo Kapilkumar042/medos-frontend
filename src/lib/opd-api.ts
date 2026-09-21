@@ -95,6 +95,11 @@ export const opdApi = {
 
   updatePatient: (id: string, data: any) =>
     api.put(`/opd/patients/${id}`, data).then((r) => r.data),
+  updateVisit: (id: string | number, payload: any) =>
+    api.put(`/opd/visits/${id}`, payload).then((r) => r.data),
+
+  updateBill: (id: string | number, payload: any) =>
+    api.put(`/opd/bills/${id}`, payload).then((r) => r.data),
 
   deletePatient: (id: string) => api.delete(`/opd/patients/${id}`),
 

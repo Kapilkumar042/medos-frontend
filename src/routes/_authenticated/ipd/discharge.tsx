@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ModuleStub } from "@/components/shared/ModuleStub";
+import { IpdPatientsPage } from "./patients";
+
 export const Route = createFileRoute("/_authenticated/ipd/discharge")({
-  component: () => <ModuleStub title="Discharge" description="Discharge patients with summary." />,
+  component: IpdPatientsPage,
 });

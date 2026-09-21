@@ -135,16 +135,15 @@ export function CatalogManager({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      await importCatalog(kind, file);
-      await loadCatalog(kind); // refresh the list after successful import
-      toast.success("Imported successfully");
-    } catch (err) {
-      console.error("Import failed", err);
-      toast.error("Failed to import file");
-    } finally {
-      if (fileRef.current) fileRef.current.value = "";
-    }
+ try {
+  const result = await importCatalog(kind, file);
+  toast.success(result?.message ?? "Imported successfully");
+} catch (err) {
+  console.error("Import failed", err);
+  toast.error("Failed to import file");
+} finally {
+  if (fileRef.current) fileRef.current.value = "";
+}
   };
 
   const cols: Column<CatalogItem>[] = [

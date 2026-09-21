@@ -75,7 +75,7 @@ const seedUsers: ManagedUser[] = [
   {
     id: "u-1",
     name: "Dr. Aarav Mehta",
-    email: "demo@medos.health",
+    email: "demo@Ncuresoft.health",
     password: "demo1234",
     role: "user",
     allowedModules: [...ALL_MODULES],

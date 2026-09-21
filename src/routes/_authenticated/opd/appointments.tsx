@@ -56,6 +56,7 @@ import {
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useDoctors } from "@/hooks/useDoctors";
+import { useAuthStore } from "@/store/authStore";
 export const Route = createFileRoute("/_authenticated/opd/appointments")({
   component: Page,
 });
@@ -94,11 +95,18 @@ type AppointmentForm = {
   notes: string;
 };
 function Page() {
+  const hospitalName = useAuthStore((state) => state.hospital?.name ?? "Hospital");
   const [items, setItems] = useState<AppointmentRecord[]>([]);
   const { doctors, loading: doctorsLoading } = useDoctors();
   const [open, setOpen] = useState(false);
   const [reschedFor, setReschedFor] = useState<AppointmentRecord | null>(null);
-
+  const getCurrentTime = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(
+      2,
+      "0",
+    )}`;
+  };
   const [form, setForm] = useState<AppointmentForm>({
     patientName: "",
     phone: "",
@@ -110,7 +118,7 @@ function Page() {
     doctor: "",
     department: "",
     date: new Date().toISOString().slice(0, 10),
-    time: "10:00",
+    time: getCurrentTime(),
     type: "New" as "New" | "Follow-up",
     notes: "",
   });
@@ -127,11 +135,35 @@ function Page() {
       doctor: "",
       department: "",
       date: new Date().toISOString().slice(0, 10),
-      time: "10:00",
+      time: getCurrentTime(),
       type: "New",
       notes: "",
     });
 
+  const openWhatsApp = (
+    phone: string,
+    patientName: string,
+    appointmentDate: string,
+    appointmentTime: string,
+  ) => {
+    const digits = phone.replace(/\D/g, "");
+    const whatsappPhone = digits.length === 10 ? `91${digits}` : digits;
+
+    const message = `Dear ${patientName},
+
+Your appointment has been booked successfully at ${hospitalName}.
+
+Date: ${appointmentDate}
+
+Thank you,
+${hospitalName}`;
+
+    window.open(
+      `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
   const submit = async () => {
     if (!form.patientName || !form.phone) {
       toast.error("Patient name and phone are required");
@@ -161,7 +193,7 @@ function Page() {
       await loadAppointments();
 
       toast.success("Appointment booked");
-
+      openWhatsApp(form.phone, form.patientName, form.date, form.time);
       setOpen(false);
       resetForm();
     } catch {
@@ -209,7 +241,11 @@ function Page() {
         <Badge variant="outline">{r.service === "Other" ? r.other_service : r.service}</Badge>
       ),
     },
-    { key: "doctor", header: "Doctor", accessor: (r) => r.doctor_id ?? "—" },
+    {
+      key: "doctor",
+      header: "Doctor",
+      accessor: (r) => (r.doctor ? `Dr. ${r.doctor.first_name} ${r.doctor.last_name}` : "N/A"),
+    },
     {
       key: "date",
       header: "Date",
@@ -221,8 +257,8 @@ function Page() {
     {
       key: "type",
       header: "Type",
-      accessor: (r) => r.appointment_type,
-      cell: (r) => <Badge variant="outline">{r.appointment_type}</Badge>,
+      accessor: (r) => r.visit_type,
+      cell: (r) => <Badge variant="outline">{r.visit_type}</Badge>,
     },
     {
       key: "status",
@@ -480,6 +516,7 @@ function Page() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="New">New</SelectItem>
+                  <SelectItem value="Old">Old</SelectItem>
                   <SelectItem value="Follow-up">Follow-up</SelectItem>
                 </SelectContent>
               </Select>

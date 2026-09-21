@@ -130,7 +130,7 @@ function RegisterPage() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <div className="font-semibold tracking-tight">MedOS</div>
+              <div className="font-semibold tracking-tight">Ncuresoft</div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 Hospital ERP
               </div>
@@ -163,7 +163,7 @@ function RegisterPage() {
                     <Input
                       value={hospitalName}
                       onChange={(e) => setHospitalName(e.target.value)}
-                      placeholder="MedOS General Hospital"
+                      placeholder="Ncuresoft General Hospital"
                       className="mt-1.5"
                     />
                   </div>
@@ -172,7 +172,7 @@ function RegisterPage() {
                     <Input
                       value={hospitalEmail}
                       onChange={(e) => setHospitalEmail(e.target.value)}
-                      placeholder="hospital@medos.health"
+                      placeholder="hospital@ncuresoft.com"
                       className="mt-1.5"
                     />
                   </div>

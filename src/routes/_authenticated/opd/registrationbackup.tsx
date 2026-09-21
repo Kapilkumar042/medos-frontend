@@ -1164,7 +1164,7 @@ function printBill(
       <div class="brand">
         <div class="logo">M+</div>
         <div>
-          <h1>MedOS Hospital</h1>
+          <h1>Ncuresoft Hospital</h1>
           <div class="sub">123 Health Avenue, Bengaluru • +91 98765 43210</div>
         </div>
       </div>
@@ -1223,7 +1223,7 @@ function printBill(
 
     <div class="foot">
       <div>This is a computer-generated bill. No signature required.</div>
-      <div>Thank you for visiting MedOS Hospital.</div>
+      <div>Thank you for visiting Ncuresoft Hospital.</div>
     </div>
   </div>
   <script>window.onload=()=>{setTimeout(()=>window.print(),200);}</script>
@@ -1246,7 +1246,7 @@ function fmt(n: number) {
 }
 function patientQrUrl(d: FormData, billNo: string, dateStr: string, doctorName?: string) {
   const info = [
-    `MedOS Hospital`,
+    `Ncuresoft Hospital`,
     `Bill No: ${billNo}`,
     `Date: ${dateStr}`,
     `UHID: ${d.uhid}`,
