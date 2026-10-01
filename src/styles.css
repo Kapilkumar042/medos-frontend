@@ -205,9 +205,17 @@
   }
 }
  input, select, optgroup, textarea, ::file-selector-button{
-  color: gray;
-  font-weight: 400;
+  color: black;
+  font-weight: 500;
+  
 }
+/* Placeholder text */
+input::placeholder,
+textarea::placeholder {
+    color: #aaa;
+    opacity: 0.5;  
+}
+
 
 /* Remove number input spinner controls */
 input[type="number"]::-webkit-inner-spin-button,
@@ -220,7 +228,7 @@ input[type="number"] {
   appearance: textfield;
 }
 
-input,
+/* input,
 textarea {
   border-radius: 0 !important;
-}
+} */

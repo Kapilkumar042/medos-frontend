@@ -16,10 +16,12 @@ import { Route as BookAppointmentRouteImport } from './routes/book-appointment'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedDashboardbbbbRouteImport } from './routes/_authenticated/dashboardbbbb'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedSettingsUsersRouteImport } from './routes/_authenticated/settings/users'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings/roles'
+import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings/profile'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings/permissions'
 import { Route as AuthenticatedSettingsHospitalQrRouteImport } from './routes/_authenticated/settings/hospital-qr'
 import { Route as AuthenticatedSettingsHospitalRouteImport } from './routes/_authenticated/settings/hospital'
@@ -38,6 +40,8 @@ import { Route as AuthenticatedOpdQueuewRouteImport } from './routes/_authentica
 import { Route as AuthenticatedOpdQueueRouteImport } from './routes/_authenticated/opd/queue'
 import { Route as AuthenticatedOpdPrescriptionsRouteImport } from './routes/_authenticated/opd/prescriptions'
 import { Route as AuthenticatedOpdPatientsRouteImport } from './routes/_authenticated/opd/patients'
+import { Route as AuthenticatedOpdFollowUpnewRouteImport } from './routes/_authenticated/opd/follow-upnew'
+import { Route as AuthenticatedOpdFollowUpRouteImport } from './routes/_authenticated/opd/follow-up'
 import { Route as AuthenticatedOpdEmrRouteImport } from './routes/_authenticated/opd/emr'
 import { Route as AuthenticatedOpdEditRouteImport } from './routes/_authenticated/opd/edit'
 import { Route as AuthenticatedOpdCertificatesRouteImport } from './routes/_authenticated/opd/certificates'
@@ -99,6 +103,12 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDashboardbbbbRoute =
+  AuthenticatedDashboardbbbbRouteImport.update({
+    id: '/dashboardbbbb',
+    path: '/dashboardbbbb',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -119,6 +129,12 @@ const AuthenticatedSettingsRolesRoute =
   AuthenticatedSettingsRolesRouteImport.update({
     id: '/settings/roles',
     path: '/settings/roles',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsProfileRoute =
+  AuthenticatedSettingsProfileRouteImport.update({
+    id: '/settings/profile',
+    path: '/settings/profile',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsPermissionsRoute =
@@ -224,6 +240,18 @@ const AuthenticatedOpdPatientsRoute =
   AuthenticatedOpdPatientsRouteImport.update({
     id: '/opd/patients',
     path: '/opd/patients',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOpdFollowUpnewRoute =
+  AuthenticatedOpdFollowUpnewRouteImport.update({
+    id: '/opd/follow-upnew',
+    path: '/opd/follow-upnew',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOpdFollowUpRoute =
+  AuthenticatedOpdFollowUpRouteImport.update({
+    id: '/opd/follow-up',
+    path: '/opd/follow-up',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedOpdEmrRoute = AuthenticatedOpdEmrRouteImport.update({
@@ -380,6 +408,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dashboardbbbb': typeof AuthenticatedDashboardbbbbRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/billing/doctor-share': typeof AuthenticatedBillingDoctorShareRoute
   '/billing/expenses': typeof AuthenticatedBillingExpensesRoute
@@ -406,6 +435,8 @@ export interface FileRoutesByFullPath {
   '/opd/certificates': typeof AuthenticatedOpdCertificatesRoute
   '/opd/edit': typeof AuthenticatedOpdEditRoute
   '/opd/emr': typeof AuthenticatedOpdEmrRoute
+  '/opd/follow-up': typeof AuthenticatedOpdFollowUpRoute
+  '/opd/follow-upnew': typeof AuthenticatedOpdFollowUpnewRoute
   '/opd/patients': typeof AuthenticatedOpdPatientsRoute
   '/opd/prescriptions': typeof AuthenticatedOpdPrescriptionsRoute
   '/opd/queue': typeof AuthenticatedOpdQueueRoute
@@ -424,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/settings/hospital': typeof AuthenticatedSettingsHospitalRoute
   '/settings/hospital-qr': typeof AuthenticatedSettingsHospitalQrRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
+  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
@@ -436,6 +468,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dashboardbbbb': typeof AuthenticatedDashboardbbbbRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/billing/doctor-share': typeof AuthenticatedBillingDoctorShareRoute
   '/billing/expenses': typeof AuthenticatedBillingExpensesRoute
@@ -462,6 +495,8 @@ export interface FileRoutesByTo {
   '/opd/certificates': typeof AuthenticatedOpdCertificatesRoute
   '/opd/edit': typeof AuthenticatedOpdEditRoute
   '/opd/emr': typeof AuthenticatedOpdEmrRoute
+  '/opd/follow-up': typeof AuthenticatedOpdFollowUpRoute
+  '/opd/follow-upnew': typeof AuthenticatedOpdFollowUpnewRoute
   '/opd/patients': typeof AuthenticatedOpdPatientsRoute
   '/opd/prescriptions': typeof AuthenticatedOpdPrescriptionsRoute
   '/opd/queue': typeof AuthenticatedOpdQueueRoute
@@ -480,6 +515,7 @@ export interface FileRoutesByTo {
   '/settings/hospital': typeof AuthenticatedSettingsHospitalRoute
   '/settings/hospital-qr': typeof AuthenticatedSettingsHospitalQrRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
+  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
@@ -494,6 +530,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dashboardbbbb': typeof AuthenticatedDashboardbbbbRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/billing/doctor-share': typeof AuthenticatedBillingDoctorShareRoute
   '/_authenticated/billing/expenses': typeof AuthenticatedBillingExpensesRoute
@@ -520,6 +557,8 @@ export interface FileRoutesById {
   '/_authenticated/opd/certificates': typeof AuthenticatedOpdCertificatesRoute
   '/_authenticated/opd/edit': typeof AuthenticatedOpdEditRoute
   '/_authenticated/opd/emr': typeof AuthenticatedOpdEmrRoute
+  '/_authenticated/opd/follow-up': typeof AuthenticatedOpdFollowUpRoute
+  '/_authenticated/opd/follow-upnew': typeof AuthenticatedOpdFollowUpnewRoute
   '/_authenticated/opd/patients': typeof AuthenticatedOpdPatientsRoute
   '/_authenticated/opd/prescriptions': typeof AuthenticatedOpdPrescriptionsRoute
   '/_authenticated/opd/queue': typeof AuthenticatedOpdQueueRoute
@@ -538,6 +577,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/hospital': typeof AuthenticatedSettingsHospitalRoute
   '/_authenticated/settings/hospital-qr': typeof AuthenticatedSettingsHospitalQrRoute
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
+  '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/_authenticated/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
@@ -552,6 +592,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/analytics'
     | '/dashboard'
+    | '/dashboardbbbb'
     | '/reports'
     | '/billing/doctor-share'
     | '/billing/expenses'
@@ -578,6 +619,8 @@ export interface FileRouteTypes {
     | '/opd/certificates'
     | '/opd/edit'
     | '/opd/emr'
+    | '/opd/follow-up'
+    | '/opd/follow-upnew'
     | '/opd/patients'
     | '/opd/prescriptions'
     | '/opd/queue'
@@ -596,6 +639,7 @@ export interface FileRouteTypes {
     | '/settings/hospital'
     | '/settings/hospital-qr'
     | '/settings/permissions'
+    | '/settings/profile'
     | '/settings/roles'
     | '/settings/users'
     | '/opd/patient/$patientId'
@@ -608,6 +652,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/analytics'
     | '/dashboard'
+    | '/dashboardbbbb'
     | '/reports'
     | '/billing/doctor-share'
     | '/billing/expenses'
@@ -634,6 +679,8 @@ export interface FileRouteTypes {
     | '/opd/certificates'
     | '/opd/edit'
     | '/opd/emr'
+    | '/opd/follow-up'
+    | '/opd/follow-upnew'
     | '/opd/patients'
     | '/opd/prescriptions'
     | '/opd/queue'
@@ -652,6 +699,7 @@ export interface FileRouteTypes {
     | '/settings/hospital'
     | '/settings/hospital-qr'
     | '/settings/permissions'
+    | '/settings/profile'
     | '/settings/roles'
     | '/settings/users'
     | '/opd/patient/$patientId'
@@ -665,6 +713,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_authenticated/analytics'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dashboardbbbb'
     | '/_authenticated/reports'
     | '/_authenticated/billing/doctor-share'
     | '/_authenticated/billing/expenses'
@@ -691,6 +740,8 @@ export interface FileRouteTypes {
     | '/_authenticated/opd/certificates'
     | '/_authenticated/opd/edit'
     | '/_authenticated/opd/emr'
+    | '/_authenticated/opd/follow-up'
+    | '/_authenticated/opd/follow-upnew'
     | '/_authenticated/opd/patients'
     | '/_authenticated/opd/prescriptions'
     | '/_authenticated/opd/queue'
@@ -709,6 +760,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/hospital'
     | '/_authenticated/settings/hospital-qr'
     | '/_authenticated/settings/permissions'
+    | '/_authenticated/settings/profile'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/users'
     | '/_authenticated/opd/patient/$patientId'
@@ -774,6 +826,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/dashboardbbbb': {
+      id: '/_authenticated/dashboardbbbb'
+      path: '/dashboardbbbb'
+      fullPath: '/dashboardbbbb'
+      preLoaderRoute: typeof AuthenticatedDashboardbbbbRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -800,6 +859,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/roles'
       fullPath: '/settings/roles'
       preLoaderRoute: typeof AuthenticatedSettingsRolesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/profile': {
+      id: '/_authenticated/settings/profile'
+      path: '/settings/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings/permissions': {
@@ -926,6 +992,20 @@ declare module '@tanstack/react-router' {
       path: '/opd/patients'
       fullPath: '/opd/patients'
       preLoaderRoute: typeof AuthenticatedOpdPatientsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/opd/follow-upnew': {
+      id: '/_authenticated/opd/follow-upnew'
+      path: '/opd/follow-upnew'
+      fullPath: '/opd/follow-upnew'
+      preLoaderRoute: typeof AuthenticatedOpdFollowUpnewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/opd/follow-up': {
+      id: '/_authenticated/opd/follow-up'
+      path: '/opd/follow-up'
+      fullPath: '/opd/follow-up'
+      preLoaderRoute: typeof AuthenticatedOpdFollowUpRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/opd/emr': {
@@ -1116,6 +1196,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDashboardbbbbRoute: typeof AuthenticatedDashboardbbbbRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedBillingDoctorShareRoute: typeof AuthenticatedBillingDoctorShareRoute
   AuthenticatedBillingExpensesRoute: typeof AuthenticatedBillingExpensesRoute
@@ -1142,6 +1223,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOpdCertificatesRoute: typeof AuthenticatedOpdCertificatesRoute
   AuthenticatedOpdEditRoute: typeof AuthenticatedOpdEditRoute
   AuthenticatedOpdEmrRoute: typeof AuthenticatedOpdEmrRoute
+  AuthenticatedOpdFollowUpRoute: typeof AuthenticatedOpdFollowUpRoute
+  AuthenticatedOpdFollowUpnewRoute: typeof AuthenticatedOpdFollowUpnewRoute
   AuthenticatedOpdPatientsRoute: typeof AuthenticatedOpdPatientsRoute
   AuthenticatedOpdPrescriptionsRoute: typeof AuthenticatedOpdPrescriptionsRoute
   AuthenticatedOpdQueueRoute: typeof AuthenticatedOpdQueueRoute
@@ -1160,6 +1243,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsHospitalRoute: typeof AuthenticatedSettingsHospitalRoute
   AuthenticatedSettingsHospitalQrRoute: typeof AuthenticatedSettingsHospitalQrRoute
   AuthenticatedSettingsPermissionsRoute: typeof AuthenticatedSettingsPermissionsRoute
+  AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsUsersRoute: typeof AuthenticatedSettingsUsersRoute
   AuthenticatedOpdPatientPatientIdRoute: typeof AuthenticatedOpdPatientPatientIdRoute
@@ -1168,6 +1252,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDashboardbbbbRoute: AuthenticatedDashboardbbbbRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedBillingDoctorShareRoute: AuthenticatedBillingDoctorShareRoute,
   AuthenticatedBillingExpensesRoute: AuthenticatedBillingExpensesRoute,
@@ -1195,6 +1280,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOpdCertificatesRoute: AuthenticatedOpdCertificatesRoute,
   AuthenticatedOpdEditRoute: AuthenticatedOpdEditRoute,
   AuthenticatedOpdEmrRoute: AuthenticatedOpdEmrRoute,
+  AuthenticatedOpdFollowUpRoute: AuthenticatedOpdFollowUpRoute,
+  AuthenticatedOpdFollowUpnewRoute: AuthenticatedOpdFollowUpnewRoute,
   AuthenticatedOpdPatientsRoute: AuthenticatedOpdPatientsRoute,
   AuthenticatedOpdPrescriptionsRoute: AuthenticatedOpdPrescriptionsRoute,
   AuthenticatedOpdQueueRoute: AuthenticatedOpdQueueRoute,
@@ -1214,6 +1301,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsHospitalRoute: AuthenticatedSettingsHospitalRoute,
   AuthenticatedSettingsHospitalQrRoute: AuthenticatedSettingsHospitalQrRoute,
   AuthenticatedSettingsPermissionsRoute: AuthenticatedSettingsPermissionsRoute,
+  AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsUsersRoute: AuthenticatedSettingsUsersRoute,
   AuthenticatedOpdPatientPatientIdRoute: AuthenticatedOpdPatientPatientIdRoute,

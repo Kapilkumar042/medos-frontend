@@ -59,11 +59,14 @@ export interface OpdPatient {
   status: "Registered" | "Billed" | "Transferred to IPD";
   netAmount?: number;
 }
-
+type PatientDateFilter = {
+  start_date?: string;
+  end_date?: string;
+};
 interface OpdState {
   patients: OpdPatient[];
   loading: boolean;
-  loadPatients: () => Promise<void>;
+  loadPatients: (filter?: PatientDateFilter) => Promise<void>;
   addPatient: (
     patient: Omit<OpdPatient, "id" | "uhid" | "opdNo" | "registeredAt">,
   ) => Promise<OpdPatient>;
@@ -72,27 +75,28 @@ interface OpdState {
   getPatient: (id: string) => OpdPatient | undefined;
 }
 
+
 export const useOpdStore = create<OpdState>()(
   persist(
     (set, get) => ({
       patients: [],
       loading: false,
 
-      loadPatients: async () => {
-        set({ loading: true });
+     loadPatients: async (filter) => {
+  set({ loading: true });
 
-        try {
-          const patients = await opdApi.listPatients();
+  try {
+    const patients = await opdApi.listPatients(filter);
 
-          set({
-            patients,
-            loading: false,
-          });
-        } catch (err) {
-          console.error(err);
-          set({ loading: false });
-        }
-      },
+    set({
+      patients,
+      loading: false,
+    });
+  } catch (err) {
+    console.error(err);
+    set({ loading: false });
+  }
+},
 
       addPatient: async (payload) => {
         const patient = await opdApi.createPatient(payload);

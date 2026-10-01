@@ -39,13 +39,13 @@ export function AppLayout() {
         </SheetContent>
       </Sheet>
 
-      <div className={cn("transition-all duration-300", collapsed ? "md:pl-[72px]" : "md:pl-[260px]")}>
+      <div className={cn("transition-all duration-300", collapsed ? "md:pl-[72px]" : "md:pl-[200px]")}>
         <TopNavbar
           onMenu={() => setMobileOpen(true)}
           onPatientSelect={setPatient}
           onCommandOpen={() => setCmdOpen(true)}
         />
-        <main className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
+        <main className="p-4 md:p-6 lg:p-2 max-w-[1600px] mx-auto">
           <Outlet />
         </main>
       </div>

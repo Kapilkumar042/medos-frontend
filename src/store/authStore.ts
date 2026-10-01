@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
+import {
+  getHospitalProfile,
+  resolveHospitalAssetUrl,
+} from "@/api/hospitalApi";
 
 export type ModuleKey =
   | "Overview"
@@ -49,6 +53,7 @@ export interface HospitalInfo {
   email: string;
   phone?: string;
   address?: string;
+  logo?: string;
   modules: ModuleKey[];
   registeredAt: string;
 }
@@ -58,6 +63,7 @@ interface AuthState {
   isAuthenticated: boolean;
   users: ManagedUser[];
   hospital: HospitalInfo | null;
+  setHospital: (hospital: HospitalInfo | ((current: HospitalInfo | null) => HospitalInfo)) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   registerHospital: (data: {
@@ -89,6 +95,10 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       users: seedUsers,
       hospital: null,
+      setHospital: (hospital) =>
+        set((state) => ({
+          hospital: typeof hospital === "function" ? hospital(state.hospital) : hospital,
+        })),
       registerHospital: async (data) => {
         const base = import.meta.env.VITE_APP_API_URL ?? "";
         try {
@@ -134,6 +144,7 @@ export const useAuthStore = create<AuthState>()(
               email: data.hospitalEmail,
               phone: data.phone,
               address: data.address,
+              logo: resp.logo_url ?? resp.logo,
               modules: data.modules,
               registeredAt: new Date().toISOString(),
             },
@@ -145,27 +156,55 @@ export const useAuthStore = create<AuthState>()(
           throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
         }
       },
-      login: async (email, password) => {
-        const base = import.meta.env.VITE_APP_API_URL;
-        const res = await axios.post(`${base}/auth/login`, { email, password });
-        if (res.status === 200) {
-          const data = res.data;
-          set({
-            isAuthenticated: true,
-            user: {
-              id: String(data.user_id),
-              name: data.full_name,
-              email,
-              role: data.role,
-              allowedModules: [],
-            },
-          });
-          localStorage.setItem("authToken", data.access_token);
-        } else {
-          throw new Error("Invalid credentials");
-        }
-      },
-      logout: () => set({ user: null, isAuthenticated: false }),
+     login: async (email, password) => {
+  const base = import.meta.env.VITE_APP_API_URL;
+  const res = await axios.post(`${base}/auth/login`, { email, password });
+
+  if (res.status !== 200) throw new Error("Invalid credentials");
+
+  const data = res.data;
+  localStorage.setItem("authToken", data.access_token);
+
+  set({
+    isAuthenticated: true,
+    user: {
+      id: String(data.user_id),
+      name: data.full_name,
+      email,
+      role: data.role,
+      allowedModules: [],
+    },
+    hospital: null,
+  });
+  try {
+  const response = await getHospitalProfile();
+  const profile = response?.data ?? response;
+
+  set({
+    hospital: {
+      name: profile?.hospital_name ?? profile?.name ?? "",
+      email: profile?.hospital_email ?? profile?.email ?? email,
+      phone: profile?.phone ?? "",
+      address: profile?.address ?? "",
+      logo: resolveHospitalAssetUrl(
+        profile?.logo_image ?? profile?.logo_url ?? profile?.logo,
+      ),
+      modules: Array.isArray(profile?.modules) ? profile.modules : [],
+      registeredAt: profile?.created_at ?? new Date().toISOString(),
+    },
+  });
+} catch (error) {
+  console.error("Failed to load hospital profile after login", error);
+}
+},
+      logout: () => {
+  localStorage.removeItem("authToken");
+  set({
+    user: null,
+    hospital: null,
+    isAuthenticated: false,
+  });
+},
     }),
     { name: "medos-auth" },
   ),

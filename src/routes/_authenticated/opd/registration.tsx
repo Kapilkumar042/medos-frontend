@@ -13,7 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Save, Printer, Stethoscope } from "lucide-react";
+import { Plus, Trash2, Save, Printer, Stethoscope, IndianRupee, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +30,10 @@ import { inr } from "@/lib/format";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useOpdStore } from "@/store/opdStore";
-import { debug, log } from "console";
 import { opdApi } from "@/lib/opd-api";
 import { useDoctors } from "@/hooks/useDoctors";
-import CreatableSelect from "react-select/creatable";
+// import CreatableSelect from "react-select/creatable";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   patientTypes,
@@ -46,6 +46,42 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { openBillPreview, type BillPrintData } from "@/lib/opd-bill-print";
+import CreatableSelect, { type CreatableProps } from "react-select/creatable";
+import type { GroupBase } from "react-select";
+function CompactCreatableSelect<
+  Option,
+  IsMulti extends boolean = false,
+  Group extends GroupBase<Option> = GroupBase<Option>,
+>({ styles, ...props }: CreatableProps<Option, IsMulti, Group>) {
+  return (
+    <CreatableSelect
+      {...props}
+      styles={{
+        control: (base) => ({
+          ...base,
+          minHeight: 32,
+          height: 32,
+          borderRadius: 12,
+        }),
+        valueContainer: (base) => ({
+          ...base,
+          height: 32,
+          padding: "0 8px",
+        }),
+        input: (base) => ({
+          ...base,
+          margin: 0,
+          padding: 0,
+        }),
+        indicatorsContainer: (base) => ({
+          ...base,
+          height: 32,
+        }),
+        ...styles,
+      }}
+    />
+  );
+}
 const searchSchema = z.object({
   edit: z.coerce.string().optional(),
   billing: z.coerce.number().optional(),
@@ -80,10 +116,16 @@ export const Route = createFileRoute("/_authenticated/opd/registration")({
   validateSearch: (s) => searchSchema.parse(s),
 });
 
-type BillCategory = "Advance" | "Lab Test" | "Radiology" | "Other" | "Medicine" | "Consultation fee";
+type BillCategory =
+  | "Advance"
+  | "Lab Test"
+  | "Radiology"
+  | "Other"
+  | "Medicine"
+  | "Consultation fee";
 
 const billItem = z.object({
-  category: z.enum(["Advance", "Lab Test", "Radiology", "Other","Medicine", "Consultation fee"]),
+  category: z.enum(["Advance", "Lab Test", "Radiology", "Other", "Medicine", "Consultation fee"]),
   name: z.string().optional(),
   code: z.string().optional(),
   qty: z.coerce.number().min(1),
@@ -138,20 +180,20 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 function Page() {
   const loadCatalog = useCatalogStore((state) => state.loadCatalog);
-const labItems = useCatalogStore((state) => state.items.lab);
-const radiologyItems = useCatalogStore((state) => state.items.radiology);
-const medicineItems = useCatalogStore((state) => state.items.medicine);
-const serviceItems = useCatalogStore((state) => state.items.service);
+  const labItems = useCatalogStore((state) => state.items.lab);
+  const radiologyItems = useCatalogStore((state) => state.items.radiology);
+  const medicineItems = useCatalogStore((state) => state.items.medicine);
+  const serviceItems = useCatalogStore((state) => state.items.service);
   const hospitalName = useAuthStore((state) => state.hospital?.name ?? "Hospital");
   const onInvalid = (formErrors: FieldErrors<FormData>) => {
     console.error("FORM BLOCKED:", formErrors);
     toast.error("Form validation failed. Check the console.");
   };
   const [visitMode, setVisitMode] = useState<"new" | "existing">("new");
-const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null);
-const [selectedBillId, setSelectedBillId] = useState<number | null>(null);
-const [visitHistory, setVisitHistory] = useState<any[]>([]);
-const [billHistory, setBillHistory] = useState<any[]>([]);
+  const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null);
+  const [selectedBillId, setSelectedBillId] = useState<number | null>(null);
+  const [visitHistory, setVisitHistory] = useState<any[]>([]);
+  const [billHistory, setBillHistory] = useState<any[]>([]);
   const [submitAction, setSubmitAction] = useState<"save" | "print">("save");
   const today = new Date().toISOString().slice(0, 10);
   const { doctors, loading: doctorsLoading } = useDoctors();
@@ -175,6 +217,11 @@ const [billHistory, setBillHistory] = useState<any[]>([]);
     editId ? s.patients.find((p) => p.id === editId) : undefined,
   );
   const updatePatient = useOpdStore((s) => s.updatePatient);
+    function getCurrentLocalDateTime() {
+  const now = new Date();
+  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return localTime.toISOString().slice(0, 16);
+}
 
   const {
     register,
@@ -202,10 +249,11 @@ const [billHistory, setBillHistory] = useState<any[]>([]);
       gender: "Male",
       salutation: "Mr.",
       relation: "Self",
-      dateTime: today,
+      dateTime: getCurrentLocalDateTime(),
+      marital:"-",
       visitDate: today,
       patient_type: "New Patient",
-      bloodGroup: "",
+      bloodGroup: "-",
       district: "Bulandshahr",
       gstPct: 0,
       totalDiscountAmt: 0,
@@ -296,18 +344,17 @@ const [billHistory, setBillHistory] = useState<any[]>([]);
   function isAllowedBloodGroup(value: any): value is (typeof allowedBloodGroups)[number] {
     return allowedBloodGroups.includes(value);
   }
-  
+
   const patientData = existing ?? apiPatient;
-  
+
   useEffect(() => {
     if (!patientData) return;
-   const patientAge = Number(patientData.age ?? 0);
-const patientDob =
-  patientData.dob || dobFromAge(patientAge, 0, 0);
+    const patientAge = Number(patientData.age ?? 0);
+    const patientDob = patientData.dob || dobFromAge(patientAge, 0, 0);
     reset({
       uhid: patientData.uhid,
-      abha: patientData.abha??"",
-      aadhaar: patientData.aadhaar??"",
+      abha: patientData.abha ?? "",
+      aadhaar: patientData.aadhaar ?? "",
       opdNo: patientData.opdNo,
       name: patientData.name,
       gender: isAllowedGender(patientData.gender) ? patientData.gender : "Male",
@@ -323,14 +370,14 @@ const patientDob =
       ageDays: 0,
       dateTime: patientData.date_time ?? patientData.date_time ?? today,
       mobile: patientData.mobile ?? "",
-      relative_name: patientData.relative_name??"",
+      relative_name: patientData.relative_name ?? "",
       email: patientData.email ?? "",
       address: patientData.address ?? "",
       bloodGroup: isAllowedBloodGroup(patientData.blood_group ?? patientData.bloodGroup)
         ? (patientData.blood_group ?? patientData.bloodGroup)
         : "Not Specified",
       marital: isAllowedMaritalStatus(patientData.marital) ? patientData.marital : "Not Specified",
-      emergency: patientData.emergency??"",
+      emergency: patientData.emergency ?? "",
       // doctor_id from API is a number, coerce to string
       doctorId: String(patientData.doctor_id ?? patientData.doctorId ?? ""),
       department: patientData.department ?? "",
@@ -382,26 +429,26 @@ const patientDob =
         .catch(console.error);
     }
   }, [editId]);
-useEffect(() => {
-  Promise.all([
-    loadCatalog("lab"),
-    loadCatalog("radiology"),
-    loadCatalog("service"),
-    loadCatalog("medicine"),
-  ]).catch(() => {
-    toast.error("Failed to load catalog items");
-  });
-}, [loadCatalog]);
+  useEffect(() => {
+    Promise.all([
+      loadCatalog("lab"),
+      loadCatalog("radiology"),
+      loadCatalog("service"),
+      loadCatalog("medicine"),
+    ]).catch(() => {
+      toast.error("Failed to load catalog items");
+    });
+  }, [loadCatalog]);
   // const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const { fields, append, remove, replace } = useFieldArray({
-  control,
-  name: "items",
-});
+    control,
+    name: "items",
+  });
   const items = useWatch({
-  control,
-  name: "items",
-  defaultValue: [],
-});
+    control,
+    name: "items",
+    defaultValue: [],
+  });
   const totalDiscountAmt = Number(watch("totalDiscountAmt") || 0);
   const totalDiscountPct = Number(watch("totalDiscountPct") || 0);
   const amount1 = Number(watch("amount1") || 0);
@@ -523,8 +570,8 @@ ${hospitalName}`;
         doctor_id: d.doctorId ? Number(d.doctorId) : null,
         department: d.department,
         email: d.email,
-        aadhaar: d.aadhaar||null,
-        abha: d.abha||null,
+        aadhaar: d.aadhaar || null,
+        abha: d.abha || null,
         district: d.district,
         marital: d.marital,
         emergency: d.emergency,
@@ -537,14 +584,15 @@ ${hospitalName}`;
         id_proof_type: d.idProofType,
         id_proof_number: d.idProofNumber,
         consultant: d.consultant,
+        status:submitAction === "print" ? "print" : "save",
       };
 
-       let patient;
-    if (editId) {
-      patient = await opdApi.updatePatient(editId, patientPayload);
-    } else {
-      patient = await opdApi.createPatient(patientPayload);
-    }
+      let patient;
+      if (editId) {
+        patient = await opdApi.updatePatient(editId, patientPayload);
+      } else {
+        patient = await opdApi.createPatient(patientPayload);
+      }
 
       // const patientPrintOpened = await openPatientPrint(patient.id);
       // if (editId) {
@@ -565,13 +613,13 @@ ${hospitalName}`;
         symptoms: d.symptoms,
         notes: d.notes,
       };
-        let visit;
+      let visit;
 
-    if (visitMode === "existing" && selectedVisitId) {
-      visit = await opdApi.updateVisit(selectedVisitId, visitPayload);
-    } else {
-      visit = await opdApi.createVisit(visitPayload);
-    }
+      if (visitMode === "existing" && selectedVisitId) {
+        visit = await opdApi.updateVisit(selectedVisitId, visitPayload);
+      } else {
+        visit = await opdApi.createVisit(visitPayload);
+      }
 
       let createdBill: any = null;
 
@@ -591,37 +639,38 @@ ${hospitalName}`;
         // };
 
         const billPayload = {
-  patient_id: patient.id,
-  visit_id: visit?.id ?? null,
-  total_amount: Number(totals.sub),
-  total_discount: Number(totals.totalDisc),
-  net_amount: Number(totals.net),
-  paid_amount: Number(d.amount1),
-  payment_mode: d.payMode1,
-  remark: d.remark ?? "",
-  items: d.items.map((item) => ({
-    category: item.category,
-    name: item.name,
-    code: item.code ?? "",
-    qty: Number(item.qty),
-    amount: Number(item.amount),
-    discount: Number(item.discount),
-    remarks: item.remarks ?? "",
-  })),
-};
+          patient_id: patient.id,
+          visit_id: visit?.id ?? null,
+          total_amount: Number(totals.sub),
+          total_discount: Number(totals.totalDisc),
+          net_amount: Number(totals.net),
+          paid_amount: Number(d.amount1),
+          payment_mode: d.payMode1,
+          remark: d.remark ?? "",
+          items: d.items.map((item) => ({
+            category: item.category,
+            name: item.name,
+            code: item.code ?? "",
+            qty: Number(item.qty),
+            amount: Number(item.amount),
+            discount: Number(item.discount),
+            remarks: item.remarks ?? "",
+          })),
+        };
 
         if (selectedBillId) {
-        await opdApi.updateBill(selectedBillId, billPayload);
-      } else {
-        await opdApi.createBill(billPayload);
-      }
+          await opdApi.updateBill(selectedBillId, billPayload);
+        } else {
+          await opdApi.createBill(billPayload);
+        }
       }
       if (submitAction === "print") {
         await openPatientPrint(patient.id);
+         openWhatsApp(d.mobile, d.name, d.visitDate, "");
       }
-if (submitAction === "save") {
-  openWhatsApp(d.mobile, d.name, d.visitDate, "");
-}
+      // if (submitAction === "save") {
+      //   openWhatsApp(d.mobile, d.name, d.visitDate, "");
+      // }
       if (showBilling) {
         const billPreviewPayload: BillPrintData = {
           ...d,
@@ -629,14 +678,18 @@ if (submitAction === "save") {
           opdNo: patient?.opd_no ?? patient?.opdNo ?? d.opdNo,
         };
 
-        
         toast.success(
           submitAction === "print"
             ? "Patient saved and receipt opened"
             : "Patient saved successfully",
+          {
+            duration: 500,
+          },
         );
       } else {
-        toast.success("Patient registered successfully");
+        toast.success("Patient registered successfully", {
+          duration: 500,
+        });
       }
 
       navigate({ to: "/opd/patients" });
@@ -649,10 +702,12 @@ if (submitAction === "save") {
   const addRow = (category: BillCategory) => {
     append({ category, name: "", code: "", qty: 1, amount: 0, discount: 0, remarks: "" });
   };
-
-  const rowsOf = (cat: BillCategory) =>
-    fields.map((f, idx) => ({ f, idx })).filter(({ idx }) => items[idx]?.category === cat);
-
+const preventNumberKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+    }
+  };
+  const rowsOf = () => fields.map((_, idx) => ({ idx }));
   const handlePreviewPrint = () => {
     const d = getValues();
   };
@@ -685,90 +740,90 @@ if (submitAction === "save") {
   const displayNet = zeroBill ? 0 : totals.net;
   const displayDue = zeroBill ? 0 : totals.due;
 
-//   useEffect(() => {
-//     if (!editId) return;
+  //   useEffect(() => {
+  //     if (!editId) return;
 
-//     const loadRelatedData = async () => {
-//       try {
-//         const [visits, bills] = await Promise.all([opdApi.listVisits(), opdApi.listBills()]);
+  //     const loadRelatedData = async () => {
+  //       try {
+  //         const [visits, bills] = await Promise.all([opdApi.listVisits(), opdApi.listBills()]);
 
-//         const patientVisits = visits
-//           .filter((visit: any) => String(visit.patient_id) === String(editId))
-//           .sort(
-//             (a: any, b: any) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime(),
-//           );
+  //         const patientVisits = visits
+  //           .filter((visit: any) => String(visit.patient_id) === String(editId))
+  //           .sort(
+  //             (a: any, b: any) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime(),
+  //           );
 
-//         const patientBills = bills
-//           .filter((bill: any) => String(bill.patient_id) === String(editId))
-//           .sort((a: any, b: any) => b.id - a.id);
+  //         const patientBills = bills
+  //           .filter((bill: any) => String(bill.patient_id) === String(editId))
+  //           .sort((a: any, b: any) => b.id - a.id);
 
-//         const visit = patientVisits[0] ?? null;
-//         const bill = patientBills[0] ?? null;
+  //         const visit = patientVisits[0] ?? null;
+  //         const bill = patientBills[0] ?? null;
 
-//         setLatestVisit(visit);
-//         setLatestBill(bill);
+  //         setLatestVisit(visit);
+  //         setLatestBill(bill);
 
-//         if (visit) {
-//           setValue("visitDate", visit.visit_date ?? today);
-//           setValue("symptoms", visit.symptoms ?? "");
-//           setValue("notes", visit.notes ?? "");
-//           setValue("doctorId", String(visit.doctor_id ?? ""));
-//           setValue("department", visit.department ?? "");
-//         }
+  //         if (visit) {
+  //           setValue("visitDate", visit.visit_date ?? today);
+  //           setValue("symptoms", visit.symptoms ?? "");
+  //           setValue("notes", visit.notes ?? "");
+  //           setValue("doctorId", String(visit.doctor_id ?? ""));
+  //           setValue("department", visit.department ?? "");
+  //         }
 
-//        const billSummary = patientBills[0] ?? null;
+  //        const billSummary = patientBills[0] ?? null;
 
-// if (billSummary) {
-//   const bill = await opdApi.getBill(billSummary.id);
+  // if (billSummary) {
+  //   const bill = await opdApi.getBill(billSummary.id);
 
-//   const billItems =
-//     typeof bill.items === "string"
-//       ? JSON.parse(bill.items)
-//       : Array.isArray(bill.items)
-//         ? bill.items
-//         : [];
+  //   const billItems =
+  //     typeof bill.items === "string"
+  //       ? JSON.parse(bill.items)
+  //       : Array.isArray(bill.items)
+  //         ? bill.items
+  //         : [];
 
-//   setLatestBill({
-//     ...billSummary,
-//     ...bill,
-//   });
+  //   setLatestBill({
+  //     ...billSummary,
+  //     ...bill,
+  //   });
 
-//   setValue("amount1", Number(bill.paid_amount ?? 0));
-//   setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
-//   setValue("totalDiscountPct", 0);
-//   setValue("payMode1", bill.payment_mode ?? "CASH");
-//   setValue("discountSource", bill.discount_source ?? "Hospital Discount");
-//   setValue("remark", bill.remark ?? "");
+  //   setValue("amount1", Number(bill.paid_amount ?? 0));
+  //   setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
+  //   setValue("totalDiscountPct", 0);
+  //   setValue("payMode1", bill.payment_mode ?? "CASH");
+  //   setValue("discountSource", bill.discount_source ?? "Hospital Discount");
+  //   setValue("remark", bill.remark ?? "");
 
-//   if (billItems.length > 0) {
-//     replace(billItems);
-//   } else {
-//     replace([
-//       {
-//         category: "Consultation fee",
-//         name: "OPD Consultation",
-//         code: "",
-//         qty: 1,
-//         amount: Number(bill.total_amount ?? 0),
-//         discount: Number(bill.total_discount ?? 0),
-//         remarks: "",
-//       },
-//     ]);
-//   }
-// }
-//       } catch (error) {
-//         console.error("Failed to load visit or bill data", error);
-//       }
-//     };
+  //   if (billItems.length > 0) {
+  //     replace(billItems);
+  //   } else {
+  //     replace([
+  //       {
+  //         category: "Consultation fee",
+  //         name: "OPD Consultation",
+  //         code: "",
+  //         qty: 1,
+  //         amount: Number(bill.total_amount ?? 0),
+  //         discount: Number(bill.total_discount ?? 0),
+  //         remarks: "",
+  //       },
+  //     ]);
+  //   }
+  // }
+  //       } catch (error) {
+  //         console.error("Failed to load visit or bill data", error);
+  //       }
+  //     };
 
-//     loadRelatedData();
-//   }, [editId, setValue, replace, today]);
-  
-useEffect(() => {
-  if (!editId && !apiPatient?.id) return;
+  //     loadRelatedData();
+  //   }, [editId, setValue, replace, today]);
 
+ useEffect(() => {
   const patientId = editId ?? apiPatient?.id;
   if (!patientId) return;
+
+  let active = true;
 
   const loadHistory = async () => {
     try {
@@ -777,44 +832,119 @@ useEffect(() => {
         opdApi.listBills(),
       ]);
 
-      const patientVisits = visits.filter(
-        (v: any) => String(v.patient_id) === String(patientId)
-      );
+      if (!active) return;
 
-      const patientBills = bills.filter(
-        (b: any) => String(b.patient_id) === String(patientId)
-      );
+      const patientVisits = visits
+        .filter((visit: any) => String(visit.patient_id) === String(patientId))
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime() ||
+            Number(b.id) - Number(a.id),
+        );
 
-      setVisitHistory(patientVisits.sort(
-        (a: any, b: any) =>
-          new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
-      ));
+      const patientBills = bills
+        .filter((bill: any) => String(bill.patient_id) === String(patientId))
+        .sort((a: any, b: any) => Number(b.id) - Number(a.id));
 
-      setBillHistory(patientBills.sort((a: any, b: any) => b.id - a.id));
-    } catch (err) {
-      console.error("History load failed", err);
+      setVisitHistory(patientVisits);
+      setBillHistory(patientBills);
+
+      const newestVisit = patientVisits[0] ?? null;
+      setLatestVisit(newestVisit);
+      setSelectedVisitId(newestVisit ? Number(newestVisit.id) : null);
+      setVisitMode(newestVisit ? "existing" : "new");
+
+      if (newestVisit) {
+        setValue("visitDate", newestVisit.visit_date ?? today);
+        setValue("symptoms", newestVisit.symptoms ?? "");
+        setValue("notes", newestVisit.notes ?? "");
+        setValue("doctorId", String(newestVisit.doctor_id ?? ""));
+        setValue("department", newestVisit.department ?? "");
+      }
+
+      const newestBill = patientBills[0] ?? null;
+      setLatestBill(newestBill);
+      setSelectedBillId(newestBill ? Number(newestBill.id) : null);
+    } catch (error) {
+      if (active) {
+        console.error("History load failed", error);
+        toast.error("Failed to load patient visit and bill history");
+      }
     }
   };
 
-  loadHistory();
-}, [editId, apiPatient?.id]);
+  void loadHistory();
+
+  return () => {
+    active = false;
+  };
+}, [editId, apiPatient?.id, setValue, today]);
+
 useEffect(() => {
   if (!selectedBillId) return;
 
-  const loadSelectedBill = async () => {
-    const bill = await opdApi.getBill(selectedBillId);
-    const items = Array.isArray(bill.items) ? bill.items : [];
+  let active = true;
 
-    replace(items);
-    setValue("amount1", Number(bill.paid_amount ?? 0));
-    setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
-    setValue("payMode1", bill.payment_mode ?? "CASH");
-    setValue("remark", bill.remark ?? "");
+  const loadSelectedBill = async () => {
+    try {
+      const bill = await opdApi.getBill(selectedBillId);
+
+      if (!active) return;
+
+      const parsedItems =
+        typeof bill.items === "string"
+          ? JSON.parse(bill.items)
+          : bill.items;
+
+      const billItems = Array.isArray(parsedItems) ? parsedItems : [];
+
+      if (billItems.length > 0) {
+        replace(billItems);
+
+        const category = billItems[0].category as BillCategory;
+        const categories: BillCategory[] = [
+          "Advance",
+          "Lab Test",
+          "Radiology",
+          "Other",
+          "Medicine",
+          "Consultation fee",
+        ];
+
+        if (categories.includes(category)) {
+          setBillCategory(category);
+        }
+      }
+
+      setValue("amount1", Number(bill.paid_amount ?? 0));
+      setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
+      setValue("totalDiscountPct", 0);
+
+      const paymentMode = String(bill.payment_mode ?? "CASH").toUpperCase();
+      const allowedPaymentModes = ["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"] as const;
+
+      setValue(
+        "payMode1",
+        allowedPaymentModes.includes(paymentMode as (typeof allowedPaymentModes)[number])
+          ? (paymentMode as FormData["payMode1"])
+          : "CASH",
+      );
+      setValue("remark", bill.remark ?? "");
+    } catch (error) {
+      if (active) {
+        console.error("Failed to load selected bill", error);
+        toast.error("Failed to load bill details");
+      }
+    }
   };
 
-  loadSelectedBill();
-}, [selectedBillId]);
-useEffect(() => {
+  void loadSelectedBill();
+
+  return () => {
+    active = false;
+  };
+}, [selectedBillId, replace, setValue]);
+  useEffect(() => {
     if (!editId) return;
 
     opdApi.getPatient(editId).then(setApiPatient).catch(console.error);
@@ -852,10 +982,44 @@ useEffect(() => {
     });
   };
 
+  const moveToNextField = (event: React.KeyboardEvent<HTMLFormElement>) => {
+    if (event.key !== "Enter") return;
+
+    const target = event.target as HTMLElement;
+
+    if (
+      target.tagName !== "INPUT" &&
+      target.tagName !== "TEXTAREA" &&
+      target.getAttribute("role") !== "combobox"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const fields = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"])',
+      ),
+    );
+
+    const currentIndex = fields.indexOf(target);
+    const nextField = fields[currentIndex + 1];
+
+    nextField?.focus();
+  };
+
+
+
   return (
     <>
       <PageHeader title={headerTitle}></PageHeader>
-      <form id="reg-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
+      <form
+        id="reg-form"
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        onKeyDown={moveToNextField}
+        className="space-y-4"
+      >
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -893,31 +1057,32 @@ useEffect(() => {
                   name="patient_type"
                   control={control}
                   render={({ field }) => (
-                    <CreatableSelect
+                    <CompactCreatableSelect
+                      className="h-8"
                       options={patientTypes}
                       isClearable
                       placeholder="Select Patient Type"
                       value={patientTypes.find((o) => o.value === field.value) ?? null}
-                      onChange={(option) => field.onChange(option?.value ?? "New Patient")}
+                      onChange={(option: any) => field.onChange(option?.value ?? "New Patient")}
                     />
                   )}
                 />
               </Field>
-              <Field label="SALUTATION">
+              <Field label="Salutation">
                 <Controller
                   name="salutation"
                   control={control}
                   render={({ field }) => (
-                    <CreatableSelect
+                    <CompactCreatableSelect
                       options={titleOptions}
                       value={titleOptions.find((o) => o.value === field.value) ?? null}
-                      onChange={(option) => {
+                      onChange={(option: any) => {
                         const salutation = option?.value ?? "Mr.";
 
                         field.onChange(salutation);
 
                         const gender =
-                          salutation === "Mr." || salutation === "Master"
+                          salutation === "Mr." || salutation === "Master" || salutation === "Mohd"
                             ? "Male"
                             : salutation === "Dr."
                               ? "-"
@@ -941,18 +1106,18 @@ useEffect(() => {
                   name="gender"
                   control={control}
                   render={({ field }) => (
-                    <CreatableSelect
+                    <CompactCreatableSelect
                       options={genderOptions}
                       isClearable
                       placeholder="Select Gender"
                       value={genderOptions.find((o) => o.value === field.value) ?? null}
-                      onChange={(option) => field.onChange(option?.value ?? "Male")}
+                      onChange={(option: any) => field.onChange(option?.value ?? "Male")}
                     />
                   )}
                 />
               </Field>
-              <Field label="REGISTRATION DATE & TIME" error={errors.dateTime?.message}>
-                <Input type="date" {...register("dateTime")} />
+              <Field label="Registration Date & Time" error={errors.dateTime?.message}>
+                <Input type="datetime-local" {...register("dateTime")} />
               </Field>
               <Field label="Date of Birth" error={errors.dob?.message}>
                 <Input
@@ -963,50 +1128,56 @@ useEffect(() => {
                 />
               </Field>
               <Field label="Age(yyyy-mm-dd)">
-                <div className="grid grid-cols-3 gap-0">
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="Years"
-                    {...register("ageYears", { valueAsNumber: true })}
-                    onChange={(event) =>
-                      syncDobFromAge(
-                        Number(event.target.value) || 0,
-                        Number(watch("ageMonths")) || 0,
-                        Number(watch("ageDays")) || 0,
-                      )
-                    }
-                  />
-
-                  <Input
-                    type="number"
-                    min={0}
-                    max={11}
-                    placeholder="Months"
-                    {...register("ageMonths", { valueAsNumber: true })}
-                    onChange={(event) =>
-                      syncDobFromAge(
-                        Number(watch("ageYears")) || 0,
-                        Number(event.target.value) || 0,
-                        Number(watch("ageDays")) || 0,
-                      )
-                    }
-                  />
-
-                  <Input
-                    type="number"
-                    min={0}
-                    max={30}
-                    placeholder="Days"
-                    {...register("ageDays", { valueAsNumber: true })}
-                    onChange={(event) =>
-                      syncDobFromAge(
-                        Number(watch("ageYears")) || 0,
-                        Number(watch("ageMonths")) || 0,
-                        Number(event.target.value) || 0,
-                      )
-                    }
-                  />
+                <div className="grid grid-cols-3">
+                  {[
+                    {
+                      placeholder: "Years",
+                      suffix: "YY",
+                      value: Number(watch("ageYears")) || 0,
+                      onChange: (value: number) =>
+                        syncDobFromAge(
+                          value,
+                          Number(watch("ageMonths")) || 0,
+                          Number(watch("ageDays")) || 0,
+                        ),
+                    },
+                    {
+                      placeholder: "Months",
+                      suffix: "MM",
+                      value: Number(watch("ageMonths")) || 0,
+                      onChange: (value: number) =>
+                        syncDobFromAge(
+                          Number(watch("ageYears")) || 0,
+                          value,
+                          Number(watch("ageDays")) || 0,
+                        ),
+                    },
+                    {
+                      placeholder: "Days",
+                      suffix: "DD",
+                      value: Number(watch("ageDays")) || 0,
+                      onChange: (value: number) =>
+                        syncDobFromAge(
+                          Number(watch("ageYears")) || 0,
+                          Number(watch("ageMonths")) || 0,
+                          value,
+                        ),
+                    },
+                  ].map((ageField) => (
+                    <div key={ageField.suffix} className="flex">
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder={ageField.placeholder}
+                        value={ageField.value}
+                        onChange={(event) => ageField.onChange(Number(event.target.value) || 0)}
+                        className="rounded-none"
+                      />
+                      <div className="flex items-center rounded-none border border-l-0 bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                        {ageField.suffix}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </Field>
               <Field label="Mobile" error={errors.mobile?.message}>
@@ -1023,16 +1194,18 @@ useEffect(() => {
                   name="idProofType"
                   control={control}
                   render={({ field }) => (
-                    <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ID proof" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Aadhaar Card">Aadhaar Card</SelectItem>
-                        <SelectItem value="PAN Card">PAN Card</SelectItem>
-                        <SelectItem value="Passport">Passport</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <CompactCreatableSelect
+                      options={[
+                        { value: "Aadhaar Card", label: "Aadhaar Card" },
+                        { value: "PAN Card", label: "PAN Card" },
+                        { value: "Passport", label: "Passport" },
+                      ]}
+                      value={field.value ? { value: field.value, label: field.value } : null}
+                      isClearable
+                      isSearchable
+                      placeholder="Select or type ID proof"
+                      onChange={(option: any) => field.onChange(option?.value ?? "")}
+                    />
                   )}
                 />
               </Field>
@@ -1044,12 +1217,12 @@ useEffect(() => {
                   name="marital"
                   control={control}
                   render={({ field }) => (
-                    <CreatableSelect
+                    <CompactCreatableSelect
                       options={maritalStatusOptions}
                       isClearable
                       placeholder="Select Marital Status"
                       value={maritalStatusOptions.find((o) => o.value === field.value) ?? null}
-                      onChange={(option) => field.onChange(option?.value ?? "Not Specified")}
+                      onChange={(option: any) => field.onChange(option?.value ?? "Not Specified")}
                     />
                   )}
                 />
@@ -1062,40 +1235,53 @@ useEffect(() => {
                   name="bloodGroup"
                   control={control}
                   render={({ field }) => (
-                    <CreatableSelect
+                    <CompactCreatableSelect
                       options={bloodGroupOptions}
                       isClearable
                       placeholder="Select Blood Group"
                       value={bloodGroupOptions.find((o) => o.value === field.value) ?? null}
-                      onChange={(option) => field.onChange(option?.value ?? "Not Specified")}
+                      onChange={(option: any) => field.onChange(option?.value ?? "Not Specified")}
                     />
                   )}
                 />
               </Field>
-              <Field label="Address" className="md:col-span-3" error={errors.address?.message}>
-                <Textarea rows={2} {...register("address")} />
+              <Field label="Address" error={errors.address?.message}>
+                <Input placeholder="address" {...register("address")} />
               </Field>
             </div>
           </Section>
 
           <Section title="Visit Details">
-            <div className="flex gap-2">
-  <Button type="button" variant={visitMode === "new" ? "default" : "outline"} onClick={() => setVisitMode("new")}>
-    New Visit
-  </Button>
-  <Button type="button" variant={visitMode === "existing" ? "default" : "outline"} onClick={() => setVisitMode("existing")}>
-    Existing Visit
-  </Button>
-</div>
-            <div className="grid md:grid-cols-3 gap-3">
+            
+            <div className="grid md:grid-cols-4 gap-3">
+             
               <Field label="Visit Purpose">
                 <Select
                   value={billCategory}
-                  onValueChange={(v) => setBillCategory(v as BillCategory)}
+                  onValueChange={(value) => {
+                    const category = value as BillCategory;
+
+                    setBillCategory(category);
+
+                    const alreadyAdded = items.some((item) => item.category === category);
+
+                    if (!alreadyAdded) {
+                      append({
+                        category,
+                        name: "",
+                        code: "",
+                        qty: 1,
+                        amount: 0,
+                        discount: 0,
+                        remarks: "",
+                      });
+                    }
+                  }}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select visit purpose" />
                   </SelectTrigger>
+
                   <SelectContent>
                     <SelectItem value="Advance">Advance</SelectItem>
                     <SelectItem value="Lab Test">Lab Test</SelectItem>
@@ -1111,113 +1297,141 @@ useEffect(() => {
                   name="doctorId"
                   control={control}
                   render={({ field }) => (
-                    <Select
-                      value={field.value ?? ""}
-                      // onValueChange={(value) => {
-                      //   field.onChange(value);
-                      //   const doc = doctors.find((x) => String(x.id) === value);
-                      //   if (doc) setValue("department", doc.specialization);
-                      // }}
-                      onValueChange={(value) => {
-  field.onChange(value);
+                    <CompactCreatableSelect
+                      options={doctors
+                        .filter((doctor) => doctor.status)
+                        .map((doctor) => ({
+                          value: String(doctor.id),
+                          label: `Dr. ${doctor.first_name} ${doctor.last_name} - Fee: ${inr(doctor.normal_fee)}`,
+                        }))}
+                      value={
+                        field.value
+                          ? {
+                              value: field.value,
+                              label: doctors.find((doctor) => String(doctor.id) === field.value)
+                                ? `Dr. ${
+                                    doctors.find((doctor) => String(doctor.id) === field.value)
+                                      ?.first_name
+                                  } ${
+                                    doctors.find((doctor) => String(doctor.id) === field.value)
+                                      ?.last_name
+                                  }`
+                                : field.value,
+                            }
+                          : null
+                      }
+                      isClearable
+                      isSearchable
+                      placeholder="Select or type doctor"
+                      onChange={(option) => {
+                        const value = option?.value ?? "";
+                        field.onChange(value);
 
-  const doctor = doctors.find((item) => String(item.id) === value);
+                       const doctor = doctors.find((item) => String(item.id) === value);
+if (!doctor) return;
 
-  if (doctor) {
-    setValue("department", doctor.specialization);
+setValue("department", doctor.specialization);
 
-    const consultationIndex = items.findIndex(
-      (item) => item.category === "Consultation fee",
-    );
+const consultationIndex = getValues("items").findIndex(
+  (item) => item.category === "Consultation fee",
+);
 
-    if (consultationIndex !== -1) {
-      setValue(
-        `items.${consultationIndex}.name`,
-        `Dr. ${doctor.first_name} ${doctor.last_name} Consultation`,
-      );
-      setValue(`items.${consultationIndex}.code`, `DOC-${doctor.id}`);
-      setValue(
-        `items.${consultationIndex}.amount`,
-        doctor.consultation_fee ?? doctor.normal_fee ?? 0,
-      );
-    }
-  }
-}}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={doctorsLoading ? "Loading..." : "Select doctor"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {doctors
-                          .filter((doctor) => doctor.status)
-                          .map((doctor) => (
-                            <SelectItem key={doctor.id} value={String(doctor.id)}>
-                              Dr. {doctor.first_name} {doctor.last_name} #{doctor.user_id}
-                              (Room {doctor.room_no}) - (Fee: {inr(doctor.normal_fee)})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+if (consultationIndex >= 0) {
+  setValue(
+    `items.${consultationIndex}.amount`,
+    Number(doctor.normal_fee) || 0,
+    { shouldDirty: true, shouldValidate: true },
+  );
+} else {
+  append({
+    category: "Consultation fee",
+    name: "OPD Consultation",
+    code: "",
+    qty: 1,
+    amount: Number(doctor.normal_fee) || 0,
+    discount: 0,
+    remarks: "",
+  });
+}
+
+setBillCategory("Consultation fee");
+                      }}
+                    />
                   )}
                 />
               </Field>
               <Field label="Department" error={errors.department?.message}>
                 <Input {...register("department")} />
               </Field>
+               <Field label="Visit Type">
+  <Select
+    value={visitMode}
+    onValueChange={(value) => {
+      setVisitMode(value as "new" | "existing");
+      setSelectedVisitId(null);
+    }}
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Select visit type" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="new">New Visit</SelectItem>
+      <SelectItem value="existing">Existing Visit</SelectItem>
+    </SelectContent>
+  </Select>
+</Field>
               {isEdit && visitHistory.length > 0 && (
-    <div className="mb-4">
-      <Field label="Select Visit to Edit">
-        <Select
-         value={selectedVisitId ? String(selectedVisitId) : ""}
- onValueChange={(v) => {
-  const val = v ? Number(v) : null;
-  setSelectedVisitId(val);
+                <div className="mb-4">
+                  <Field label="Select Visit to Edit">
+                    <Select
+                      value={selectedVisitId ? String(selectedVisitId) : ""}
+                      onValueChange={(v) => {
+                        const val = v ? Number(v) : null;
+                        setSelectedVisitId(val);
 
-  if (!val) {
-    setValue("visitDate", today);
-    setValue("symptoms", "");
-    setValue("notes", "");
-    setValue("doctorId", "");
-    setValue("department", "");
-    return;
-  }
+                        if (!val) {
+                          setValue("visitDate", today);
+                          setValue("symptoms", "");
+                          setValue("notes", "");
+                          setValue("doctorId", "");
+                          setValue("department", "");
+                          return;
+                        }
 
-  const visit = visitHistory.find((x) => x.id === val);
-  if (!visit) return;
+                        const visit = visitHistory.find((x) => x.id === val);
+                        if (!visit) return;
 
-  setValue("visitDate", visit.visit_date ?? today);
-  setValue("symptoms", visit.symptoms ?? "");
-  setValue("notes", visit.notes ?? "");
-  setValue("doctorId", String(visit.doctor_id ?? ""));
-  setValue("department", visit.department ?? "");
-}}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Choose visit to edit" />
-          </SelectTrigger>
-          <SelectContent>
-            {visitHistory.map((visit) => (
-              <SelectItem key={visit.id} value={String(visit.id)}>
-                {visit.visit_date} - {visit.department}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-    </div>
-  )}
-  {isEdit && billHistory.length > 0 && (
-  <div className="mb-4">
-    <Field label="Select Bill to Edit">
-      <Select
-  value={selectedBillId ? String(selectedBillId) : ""}
-  onValueChange={async (v) => {
-  const val = v ? Number(v) : null;
-  setSelectedBillId(val);
+                        setValue("visitDate", visit.visit_date ?? today);
+                        setValue("symptoms", visit.symptoms ?? "");
+                        setValue("notes", visit.notes ?? "");
+                        setValue("doctorId", String(visit.doctor_id ?? ""));
+                        setValue("department", visit.department ?? "");
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose visit to edit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {visitHistory.map((visit) => (
+                          <SelectItem key={visit.id} value={String(visit.id)}>
+                            {visit.visit_date} - {visit.department}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              )}
+              {isEdit && billHistory.length > 0 && (
+                <div className="mb-4">
+                  <Field label="Select Bill to Edit">
+                    <Select
+                      value={selectedBillId ? String(selectedBillId) : ""}
+                      onValueChange={(value) => {
+  const billId = value ? Number(value) : null;
+  setSelectedBillId(billId);
 
-  if (!val) {
+  if (!billId) {
     replace([
       {
         category: "Consultation fee",
@@ -1229,53 +1443,46 @@ useEffect(() => {
         remarks: "",
       },
     ]);
+    setBillCategory("Consultation fee");
     setValue("amount1", 0);
     setValue("totalDiscountAmt", 0);
+    setValue("totalDiscountPct", 0);
     setValue("payMode1", "CASH");
     setValue("remark", "");
-    return;
   }
-
-  const bill = await opdApi.getBill(val);
-  const items = Array.isArray(bill.items) ? bill.items : [];
-
-  replace(items);
-  setValue("amount1", Number(bill.paid_amount ?? 0));
-  setValue("totalDiscountAmt", Number(bill.total_discount ?? 0));
-  setValue("payMode1", bill.payment_mode ?? "CASH");
-  setValue("remark", bill.remark ?? "");
 }}
->
-        <SelectTrigger>
-          <SelectValue placeholder="Choose bill to edit" />
-        </SelectTrigger>
-        <SelectContent>
-          {billHistory.map((bill) => (
-            <SelectItem key={bill.id} value={String(bill.id)}>
-              Bill #{bill.id} - ₹{bill.net_amount ?? 0}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Field>
-  </div>
-)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose bill to edit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {billHistory.map((bill) => (
+                          <SelectItem key={bill.id} value={String(bill.id)}>
+                            Bill #{bill.id} - ₹{bill.net_amount ?? 0}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              )}
             </div>
-            
+
             <div className="flex items-center justify-between mt-4 mb-2">
               <BillTable
-  rows={rowsOf(billCategory)}
-  category={billCategory}
-  labItems={labItems}
-  radiologyItems={radiologyItems}
-  serviceItems={serviceItems}
-  medicineItems={medicineItems}
-  register={register}
-  setValue={setValue}
-  control={control}
-  remove={remove}
-  onAdd={() => addRow(billCategory)}
-/>
+                rows={rowsOf()}
+                billItems={items}
+                // category={billCategory}
+                labItems={labItems}
+                radiologyItems={radiologyItems}
+                serviceItems={serviceItems}
+                medicineItems={medicineItems}
+                register={register}
+                setValue={setValue}
+                control={control}
+                remove={remove}
+                onAdd={() => addRow(billCategory)}
+              />
             </div>
             <div className="grid md:grid-cols-3 gap-3">
               <Field label="Reference Doctor">
@@ -1324,28 +1531,42 @@ useEffect(() => {
                 <Field label="Total Amount">
                   <Input value={fmt(displaySub)} readOnly className="bg-muted/40" />
                 </Field>
-                <Field label="Total Discount (Amt.)">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    placeholder="0"
-                    {...register("totalDiscountAmt")}
-                    onChange={(event) => handleDiscountAmountChange(event.target.value)}
-                  />
-                </Field>
+                <div className="flex items-center gap-0 mt-7">
+                  <div className="flex items-center">
+                    <div className="flex h-10 w-9 items-center justify-center border border-r-0 bg-muted">
+                      <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <Input
+                    onKeyDown={preventNumberKeys}
+                                    onWheel={(e) => e.currentTarget.blur()}
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="0"
+                      {...register("totalDiscountAmt")}
+                      onChange={(event) => handleDiscountAmountChange(event.target.value)}
+                      className="h-10 w-20 rounded-none"
+                    />
+                  </div>
 
-                <Field label="Total Discount (%)">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    max={100}
-                    placeholder="0"
-                    {...register("totalDiscountPct")}
-                    onChange={(event) => handleDiscountPercentageChange(event.target.value)}
-                  />
-                </Field>
+                  <div className="flex items-center">
+                    <div className="flex h-10 w-9 items-center justify-center border border-r-0 bg-muted">
+                      <Percent className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <Input
+                    onKeyDown={preventNumberKeys}
+                                    onWheel={(e) => e.currentTarget.blur()}
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      max={100}
+                      placeholder="0"
+                      {...register("totalDiscountPct")}
+                      onChange={(event) => handleDiscountPercentageChange(event.target.value)}
+                      className="h-10 w-20 rounded-none"
+                    />
+                  </div>
+                </div>
                 {/* <Field label="Total Discount">
                   <Input
                     value={fmt(displayTotalDisc)}
@@ -1381,7 +1602,7 @@ useEffect(() => {
                     )}
                   />
                 </Field>
-                <Field label="PayMode-1">
+                <Field label="Pay Mode">
                   <Controller
                     name="payMode1"
                     control={control}
@@ -1401,14 +1622,15 @@ useEffect(() => {
                     )}
                   />
                 </Field>
-                <Field label="Amount-1 (Paid)">
-                  <Input type="number" step="0.01" min={0} {...register("amount1")} />
+                <Field label="Amount (Paid)">
+                  <Input onKeyDown={preventNumberKeys}
+                                    onWheel={(e) => e.currentTarget.blur()} type="number" step="0.01" min={0} {...register("amount1")} />
                 </Field>
 
-                <Field label="Total Due Amount">
+                <Field label="Total Due">
                   <Input value={fmt(displayDue)} readOnly className="bg-muted/40 font-medium" />
                 </Field>
-                <Field label="Discount Hospital/Doctor">
+                <Field label="Offer By">
                   <Controller
                     name="discountSource"
                     control={control}
@@ -1460,7 +1682,8 @@ useEffect(() => {
 
 function BillTable({
   rows,
-  category,
+  billItems,
+  // category,
   labItems,
   radiologyItems,
   serviceItems,
@@ -1472,7 +1695,8 @@ function BillTable({
   onAdd,
 }: {
   rows: { idx: number }[];
-  category: BillCategory;
+  billItems: FormData["items"];
+  // category: BillCategory;
   labItems: CatalogItem[];
   radiologyItems: CatalogItem[];
   serviceItems: CatalogItem[];
@@ -1483,22 +1707,22 @@ function BillTable({
   remove: (i: number) => void;
   onAdd: () => void;
 }) {
-  const catalog =
-  category === "Lab Test"
-    ? labItems
-    : category === "Radiology"
-      ? radiologyItems
-      : category === "Other"
-        ? serviceItems
-        : category === "Medicine"
-          ? medicineItems
-          : null;
+  // const catalog =
+  //   category === "Lab Test"
+  //     ? labItems
+  //     : category === "Radiology"
+  //       ? radiologyItems
+  //       : category === "Other"
+  //         ? serviceItems
+  //         : category === "Medicine"
+  //           ? medicineItems
+  //           : null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 w-full">
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+          <thead className="bg-muted/50 text-xs  tracking-wider text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2 font-medium min-w-[220px]">Item Name</th>
               <th className="text-left px-3 py-2 font-medium w-[130px]">Item Code</th>
@@ -1518,23 +1742,38 @@ function BillTable({
                 </td>
               </tr>
             )}
-            {rows.map(({ idx }) => (
-              <BillRow
-                key={idx}
-                idx={idx}
-                catalog={catalog}
-                register={register}
-                setValue={setValue}
-                control={control}
-                remove={remove}
-              />
-            ))}
+            {rows.map(({ idx }) => {
+  const rowCategory = billItems[idx]?.category;
+  const catalog =
+    rowCategory === "Lab Test"
+      ? labItems
+      : rowCategory === "Radiology"
+        ? radiologyItems
+        : rowCategory === "Other"
+          ? serviceItems
+          : rowCategory === "Medicine"
+            ? medicineItems
+            : null;
+
+  return (
+    <BillRow
+      key={idx}
+      idx={idx}
+      catalog={catalog}
+      register={register}
+      setValue={setValue}
+      control={control}
+      remove={remove}
+      onAdd={onAdd}
+    />
+  );
+})}
           </tbody>
         </table>
       </div>
-      <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+      {/* <Button type="button" variant="outline" size="sm" onClick={onAdd}>
         <Plus className="h-4 w-4 mr-1.5" /> Add {category}
-      </Button>
+      </Button> */}
     </div>
   );
 }
@@ -1616,66 +1855,100 @@ function BillRow({
   setValue,
   control,
   remove,
+  onAdd,
 }: {
   idx: number;
-  catalog: { id?: string | number; code?: string | null; name: string; price?: number; mrp?: number }[] | null;
+  catalog:
+    | { id?: string | number; code?: string | null; name: string; price?: number; unit_price?: number }[]
+    | null;
   register: UseFormRegister<FormData>;
   setValue: UseFormSetValue<FormData>;
   control: Control<FormData>;
   remove: (i: number) => void;
+  onAdd: () => void;
 }) {
   const currentName = useWatch({ control, name: `items.${idx}.name` }) as string | undefined;
   const currentCode = useWatch({ control, name: `items.${idx}.code` }) as string | undefined;
 
-  const selectedValue = (() => {
-    if (!catalog) return "";
-    const selected = catalog.find((x) => {
-      const itemId = String(x.id ?? "");
-      const itemCode = x.code ? String(x.code) : "";
-      return itemId === String(currentCode ?? "") || itemCode === String(currentCode ?? "") || x.name === currentName;
-    });
-    return selected ? String(selected.id ?? selected.code ?? selected.name) : "";
-  })();
+ const selectedValue = (() => {
+  if (!catalog) return "";
 
+  const code = currentCode?.trim();
+  const name = currentName?.trim();
+
+  const selected = catalog.find(
+    (item) =>
+      (code &&
+        (String(item.id ?? "") === code || String(item.code ?? "") === code)) ||
+      (name && item.name === name),
+  );
+
+  return selected
+    ? String(selected.id || selected.code || selected.name)
+    : "";
+})();
+
+const catalogValue = (item: {
+  id?: string | number;
+  code?: string | null;
+  name: string;
+}) => String(item.id || item.code || item.name);
+
+const sortedCatalog = catalog
+  ? [...catalog].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    )
+  : [];
+
+   function formatExpiry(value?: string) {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(value ?? "");
+  if (!match) return value ?? "—";
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const monthName = new Date(year, month, 1)
+    .toLocaleString("en", { month: "short" })
+
+  return `${monthName}-${match[1].slice(-2)}`;
+}
+
+const preventNumberKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+    }
+  };
   return (
     <tr className="border-t border-border">
       <td className="px-2 py-1.5">
         {catalog ? (
           <Select
             value={selectedValue}
-            onValueChange={(v) => {
-              const it = catalog.find(
-                (x) => String(x.id ?? x.code ?? x.name) === v,
-              );
+           onValueChange={(value) => {
+  const item = catalog.find((entry) => catalogValue(entry) === value);
+  if (!item) return;
 
-              if (!it) return;
-
-              setValue(`items.${idx}.name`, it.name ?? "", {
-                shouldDirty: true,
-                shouldTouch: true,
-              });
-              setValue(`items.${idx}.code`, it.code ?? String(it.id ?? ""), {
-                shouldDirty: true,
-                shouldTouch: true,
-              });
-              setValue(`items.${idx}.amount`, Number(it.price ?? it.mrp ?? 0), {
-                shouldDirty: true,
-                shouldTouch: true,
-              });
-            }}
+  setValue(`items.${idx}.name`, item.name, { shouldDirty: true });
+  setValue(`items.${idx}.code`, item.code || String(item.id || item.name), {
+    shouldDirty: true,
+  });
+  setValue(`items.${idx}.amount`, Number(item.price ?? item.unit_price ?? 0), {
+    shouldDirty: true,
+  });
+}}
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Select service…" />
             </SelectTrigger>
             <SelectContent>
-              {catalog.map((c) => (
-                <SelectItem
-                  key={String(c.id ?? c.code ?? c.name)}
-                  value={String(c.id ?? c.code ?? c.name)}
-                >
-                  {c.name} — ₹{c.price ?? c.mrp ?? 0}
-                </SelectItem>
-              ))}
+              
+             {sortedCatalog.map((item) => (
+  <SelectItem key={catalogValue(item)} value={catalogValue(item)}>
+    {item.name} {item?.expiry && <span className="text-xs text-muted-foreground">Exp: ({formatExpiry(item?.expiry)})</span>}
+  </SelectItem>
+))}
             </SelectContent>
           </Select>
         ) : (
@@ -1688,15 +1961,22 @@ function BillRow({
       </td>
 
       <td className="px-2 py-1.5">
-        <Input className="h-9" type="number" {...register(`items.${idx}.qty`)} />
+        <Input onKeyDown={preventNumberKeys}
+                onWheel={(e) => e.currentTarget.blur()} className="h-9" type="number" {...register(`items.${idx}.qty`)} />
       </td>
 
       <td className="px-2 py-1.5">
-        <Input className="h-9" type="number" {...register(`items.${idx}.amount`)} />
+        <Input
+        onKeyDown={preventNumberKeys}
+        onWheel={(e) => e.currentTarget.blur()}
+        className="h-9" type="number" {...register(`items.${idx}.amount`)} />
       </td>
 
       <td className="px-2 py-1.5">
-        <Input className="h-9" type="number" {...register(`items.${idx}.discount`)} />
+        <Input
+        onKeyDown={preventNumberKeys}
+                                    onWheel={(e) => e.currentTarget.blur()}
+        className="h-9" type="number" {...register(`items.${idx}.discount`)} />
       </td>
 
       <td className="px-2 py-1.5">
@@ -1708,10 +1988,28 @@ function BillRow({
       </td>
 
       <td className="px-2 py-1.5">
-        <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)}>
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      </td>
+  <div className="flex items-center">
+    <Button
+    className="bg-blue-200 text-primary"
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={onAdd}
+    >
+      <Plus className="h-4 w-4" />
+    </Button>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Remove item"
+      title="Remove item"
+      onClick={() => remove(idx)}
+    >
+      <Trash2 className="h-4 w-4 text-destructive" />
+    </Button>
+  </div>
+</td>
     </tr>
   );
 }
@@ -1728,7 +2026,9 @@ function NetCell({ idx, control }: { idx: number; control: Control<FormData> }) 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-2xl font-bold uppercase tracking-wider text-muted-foreground mb-3">{title}</div>
+      <div className="text-2xl font-bold  tracking-wider text-muted-foreground mb-3">
+        {title}
+      </div>
       {children}
     </div>
   );
@@ -1746,7 +2046,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <Label className="text-sm">{label}</Label>
+      <Label className="text-[15px] text-muted-foreground">{label}</Label>
       <div className="mt-1">{children}</div>
       {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>

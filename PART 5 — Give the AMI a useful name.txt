@@ -1,0 +1,1046 @@
+PART 5 — Give the AMI a useful name
+
+For example:
+
+MedOS-Production-2026-09-26
+
+Description:
+
+MedOS production server with FastAPI, PostgreSQL, Nginx and React frontend
+
+You can leave most settings as they are unless you have a special storage configuration.
+
+Click:
+
+Create image
+
+AWS will create an AMI.
+
+PART 6 — Wait for the AMI
+
+Go to:
+
+EC2 → AMIs
+
+Select:
+
+Owned by me
+
+You should see:
+
+MedOS-Production-2026-09-26
+
+Initially it may say:
+
+Pending
+
+Wait until:
+
+Available
+
+Don't proceed until the AMI is available.
+
+PART 7 — Get the NEW AWS Account ID
+
+Now you need the AWS account ID of the destination account.
+
+Log into your new AWS account.
+
+Click your account name in the top-right.
+
+You'll see something similar to:
+
+Account ID: 123456789012
+
+Copy that number.
+
+You need it in the old account.
+
+PART 8 — Share the AMI with the new AWS account
+
+Go back to the OLD AWS account.
+
+Go:
+
+EC2 → AMIs
+
+Select:
+
+MedOS-Production-2026-09-26
+
+Then:
+
+Actions → Edit AMI permissions
+
+You'll have an option to share the AMI with another AWS account.
+
+Enter:
+
+123456789012
+
+Replace this with your actual new AWS account ID.
+
+Save.
+
+PART 9 — What about the EBS snapshots?
+
+This is very important.
+
+An AMI normally references EBS snapshots.
+
+When you share the AMI, the underlying EBS snapshots also need to be usable by the destination account.
+
+AWS handles the normal AMI sharing relationship, but if your AMI uses encrypted EBS volumes, KMS permissions become important.
+
+If your disk is NOT encrypted
+
+Migration is much simpler.
+
+If your EBS volume IS encrypted
+
+You may need to share the KMS key with the destination AWS account and grant the destination account permission to use it.
+
+We'll cover that separately if your AMI shows encrypted snapshots.
+
+PART 10 — Log into the NEW AWS account
+
+Now switch accounts.
+
+Go to:
+
+AWS Console → EC2 → AMIs
+
+Change the filter from:
+
+Owned by me
+
+to something like:
+
+Private images
+
+or:
+
+Shared with me
+
+You should see:
+
+MedOS-Production-2026-09-26
+
+from your old AWS account.
+
+If you don't see it immediately, wait a few minutes and verify:
+
+correct AWS account
+correct AWS region
+correct AMI sharing permissions
+PART 11 — Launch the new EC2
+
+Select the shared AMI.
+
+Click:
+
+Launch instance from AMI
+
+Give your new server a name:
+
+MedOS-Production
+PART 12 — Choose the EC2 instance type
+
+For example, if your old server was:
+
+t3.small
+
+you can choose the same.
+
+If you're trying to stay within AWS free/low-cost options, select an instance type that is eligible for your current AWS account's applicable free-tier offer.
+
+Don't assume an instance is free just because it was free in another account—the current AWS pricing/free-tier terms apply to the destination account.
+
+PART 13 — Choose a key pair
+
+This is one of the most important differences between copying an EC2 and copying a complete server.
+
+Your old SSH key does not automatically become the new instance's login key in the way you might expect.
+
+When launching the new instance, AWS will ask:
+
+Key pair
+
+You can:
+
+Option A — Create a new key pair
+
+Recommended for a new AWS account.
+
+Example:
+
+medos-new-key
+
+Download:
+
+medos-new-key.pem
+
+Store it somewhere safe.
+
+For Windows, for example:
+
+C:\Users\kapil\Downloads\medos-new-key.pem
+PART 14 — Configure the Security Group
+
+Create a new Security Group in the new AWS account.
+
+Example:
+
+medos-production-sg
+SSH
+Type: SSH
+Port: 22
+Source: My IP
+
+Don't use:
+
+0.0.0.0/0
+
+for SSH unless you have a specific reason.
+
+HTTP
+Type: HTTP
+Port: 80
+Source: 0.0.0.0/0
+HTTPS
+Type: HTTPS
+Port: 443
+Source: 0.0.0.0/0
+Don't expose port 8000
+
+Do not add:
+
+8000 → 0.0.0.0/0
+
+Your architecture should remain:
+
+Internet
+   ↓
+Nginx :80/:443
+   ↓
+FastAPI 127.0.0.1:8000
+PART 15 — Launch the instance
+
+Review everything.
+
+Then click:
+
+Launch instance
+
+AWS will create a new EC2 based on your old server image.
+
+Wait until:
+
+Instance state: Running
+PART 16 — Get the NEW public IP
+
+Go to:
+
+EC2 → Instances → MedOS-Production
+
+Copy:
+
+Public IPv4 address
+
+For example:
+
+54.xx.xx.xx
+
+This is the new server IP.
+
+It will be different from the old server.
+
+PART 17 — SSH into the copied server
+
+On Windows PowerShell:
+
+ssh -i "$HOME\Downloads\medos-new-key.pem" ubuntu@NEW_IP
+
+For example:
+
+ssh -i "$HOME\Downloads\medos-new-key.pem" ubuntu@54.xx.xx.xx
+
+If it asks:
+
+Are you sure you want to continue connecting?
+
+type:
+
+yes
+PART 18 — Check that your MedOS files are there
+
+Run:
+
+ls -la /home/ubuntu/medos-backend
+
+You should see your backend.
+
+Then:
+
+ls -la /var/www/html
+
+You should see your React production files.
+
+For example:
+
+index.html
+assets/
+
+This is the major time saving.
+
+You shouldn't need to upload the entire backend/frontend again.
+
+PART 19 — Check Python environment
+
+Run:
+
+/home/ubuntu/medos-backend/venv/bin/python --version
+
+Then:
+
+/home/ubuntu/medos-backend/venv/bin/pip show fastapi
+
+You should see FastAPI installed.
+
+Check SQLAdmin:
+
+/home/ubuntu/medos-backend/venv/bin/pip show sqladmin
+PART 20 — Check PostgreSQL
+
+Run:
+
+sudo systemctl status postgresql --no-pager
+
+You want:
+
+Active: active (running)
+
+Then:
+
+sudo -u postgres psql
+
+Inside PostgreSQL:
+
+\l
+
+You should see your MedOS database.
+
+Exit:
+check tables in sudo -u postgres psql -d medos -c "\dt"
+\q
+PART 21 — Check the MedOS service
+
+Run:
+
+sudo systemctl status medos --no-pager
+
+Because the AMI copied your existing systemd configuration, you should have:
+
+/etc/systemd/system/medos.service
+
+Check:
+
+cat /etc/systemd/system/medos.service
+
+Your service should resemble:
+
+[Unit]
+Description=MedOS FastAPI
+After=network.target postgresql.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/medos-backend
+Environment="PATH=/home/ubuntu/medos-backend/venv/bin"
+EnvironmentFile=/home/ubuntu/medos-backend/.env
+ExecStart=/home/ubuntu/medos-backend/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+PART 22 — Start/restart the service
+
+Run:
+
+sudo systemctl daemon-reload
+
+Then:
+
+sudo systemctl enable medos
+
+Then:
+
+sudo systemctl restart medos
+
+Check:
+
+sudo systemctl status medos --no-pager
+PART 23 — Test FastAPI
+
+Run:
+
+curl http://127.0.0.1:8000/
+
+You should get your API response.
+
+For example, your current application has:
+
+{"message":"I love you Meenu too much"}
+
+If you get that, FastAPI is running.
+
+PART 24 — Check Nginx
+
+Run:
+
+sudo systemctl status nginx --no-pager
+
+Then:
+
+sudo nginx -t
+
+You want:
+
+syntax is ok
+test is successful
+
+Then:
+
+curl -I http://127.0.0.1/
+
+You should receive:
+
+HTTP/1.1 200 OK
+PART 25 — Very important: update the frontend API URL
+
+This is one place where you need to be careful.
+
+Your existing frontend was built with an API URL such as:
+
+VITE_APP_API_URL=http://13.200.215.42/api
+
+The old IP will no longer be correct.
+
+If you're temporarily using the new IP:
+
+VITE_APP_API_URL=http://NEW_IP/api
+
+But remember:
+
+Vite environment variables are embedded into the frontend during npm run build.
+
+So simply changing an .env file on the server will not change an already-built React application.
+
+PART 26 — Better approach: use your domain
+
+If you already have a domain, this is much better.
+
+For example:
+
+https://medos.example.com
+
+Then use:
+
+VITE_APP_API_URL=https://medos.example.com/api
+
+Your frontend doesn't care if your EC2 IP changes.
+
+PART 27 — If you are currently using only the IP
+
+You can temporarily use:
+
+VITE_APP_API_URL=http://NEW_IP/api
+
+Build:
+
+npm run build
+
+Then upload the new dist contents to:
+
+/var/www/html/
+
+However, because your source project is probably on your Windows PC, I'd normally recommend doing the build on your development machine and uploading the dist folder.
+
+PART 28 — Update FastAPI CORS
+
+Your existing backend currently has CORS similar to:
+
+allow_origins=[
+    "http://localhost:5173",
+]
+
+If the frontend is being served by Nginx from the same domain/IP and API requests go through:
+
+/api
+
+CORS may not be needed for same-origin browser requests.
+
+For example:
+
+http://NEW_IP/
+
+calling:
+
+http://NEW_IP/api/auth/login
+
+is same-origin.
+
+For production with a domain, your configuration should reflect the actual frontend origin if cross-origin requests are involved.
+
+PART 29 — Update .env
+
+Check:
+
+cd /home/ubuntu/medos-backend
+cat .env
+
+Do not paste your secrets/passwords here.
+
+Check especially:
+
+DATABASE_URL
+SECRET_KEY
+
+The database credentials may still work because the PostgreSQL database was copied with the server.
+
+Don't randomly change them.
+
+PART 30 — Important PostgreSQL consideration
+
+There are two migration scenarios.
+
+Scenario A — You want the exact existing database
+
+AMI migration can copy the PostgreSQL data stored on the copied EBS volume.
+
+Then:
+
+Old PostgreSQL
+       ↓
+AMI/EBS snapshot
+       ↓
+New EC2
+       ↓
+Same PostgreSQL data
+
+This is convenient.
+
+But for a production database, you should ensure the database is in a consistent state during image creation.
+
+Scenario B — You want a clean server but import database separately
+
+You can instead dump the database:
+
+pg_dump -U YOUR_DB_USER YOUR_DB_NAME > medos_backup.sql
+
+Then transfer/import it into the new PostgreSQL instance.
+
+This is more manual but gives you a separate database migration.
+
+For your goal of saving setup time, AMI migration is usually the simpler path if you're intentionally copying the whole server.
+
+PART 31 — Elastic IP
+
+Your old EC2's public IP and Elastic IP are not automatically transferred to the new AWS account.
+
+If your domain currently points to:
+
+OLD_IP
+
+you need to point it to:
+
+NEW_IP
+
+Better:
+
+Allocate an Elastic IP in the new account.
+
+Go:
+
+EC2 → Elastic IPs
+
+→ Allocate Elastic IP address
+
+Then:
+
+Actions → Associate Elastic IP address
+
+Select:
+
+MedOS-Production
+
+Now you have a stable IP.
+
+PART 32 — Update DNS
+
+Suppose your domain is:
+
+example.com
+
+And your new Elastic IP is:
+
+54.xx.xx.xx
+
+DNS:
+
+A     @       54.xx.xx.xx
+A     www     54.xx.xx.xx
+
+If using:
+
+medos.example.com
+
+then:
+
+A     medos    54.xx.xx.xx
+PART 33 — Update Nginx domain
+
+On the new EC2:
+
+sudo nano /etc/nginx/sites-available/default
+
+Your server block should use your actual domain:
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name example.com www.example.com;
+
+    root /var/www/html;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:8000/uploads/;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /admin/ {
+        proxy_pass http://127.0.0.1:8000;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+Then:
+
+sudo nginx -t
+
+If successful:
+
+sudo systemctl reload nginx
+PART 34 — HTTPS
+
+Once DNS points to the new server, install/configure HTTPS using Certbot/Let's Encrypt.
+
+For Ubuntu/Nginx, the exact package/instructions can vary by Ubuntu release, so check the current Certbot instructions for your server version before installing.
+
+After HTTPS:
+
+https://example.com
+
+Frontend:
+
+https://example.com
+
+API:
+
+https://example.com/api
+
+Admin:
+
+https://example.com/admin/
+PART 35 — VERY IMPORTANT: regenerate frontend after domain change
+
+Suppose you have:
+
+VITE_APP_API_URL=http://OLD_IP/api
+
+Change it to:
+
+VITE_APP_API_URL=https://example.com/api
+
+Then:
+
+npm run build
+
+Upload the new dist contents to:
+
+/var/www/html/
+
+Otherwise your React application may continue calling the old server.
+
+PART 36 — Things that DO NOT get copied automatically
+
+This is the most important part of the migration.
+
+Item	Copied by AMI?
+Ubuntu OS	✅
+Installed Python	✅
+FastAPI	✅
+Python venv	✅
+MedOS backend	✅
+Nginx	✅
+Nginx config	✅
+React dist	✅
+PostgreSQL installation	✅
+PostgreSQL data on copied EBS	✅
+systemd service	✅
+/home/ubuntu files	✅
+Elastic IP	❌
+Security Group	❌
+IAM roles/permissions	❌
+AWS account settings	❌
+Route 53 hosted zones	❌
+Domain registration	❌
+ACM certificates	❌
+S3 buckets	❌
+CloudFront distributions	❌
+CloudWatch configuration	❌
+Secrets stored outside EC2	❌
+
+So think of the AMI as:
+
+Copy the server itself, not the entire AWS account.
+
+PART 37 — Security Group must be recreated
+
+Your old Security Group doesn't automatically become a new Security Group in the new account.
+
+Create something like:
+
+medos-production-sg
+
+Rules:
+
+SSH    22     My IP
+HTTP   80     0.0.0.0/0
+HTTPS  443    0.0.0.0/0
+
+No public:
+
+8000
+5432
+PART 38 — IAM is separate
+
+If your application uses AWS services, check whether your old EC2 had an IAM role.
+
+Go in the old account:
+
+EC2 → Instance → Security → IAM Role
+
+If there is one, document it.
+
+For example, your application may use:
+
+S3
+SES
+Secrets Manager
+CloudWatch
+
+The IAM role itself isn't copied just because you copied the AMI.
+
+You'll need to create the equivalent role/policies in the new account.
+
+PART 39 — S3 is NOT copied
+
+If MedOS stores files in S3, your AMI won't copy those files.
+
+For example:
+
+Old AWS Account
+     │
+     └── S3
+         ├── patient files
+         ├── reports
+         └── uploads
+
+Those need a separate S3 migration.
+
+Don't delete the old bucket until you've verified everything.
+
+PART 40 — Route 53 is NOT copied
+
+If your domain DNS is managed in Route 53:
+
+Route 53
+
+is separate from the EC2 AMI.
+
+You'll need to recreate/migrate the hosted zone/DNS records in the new account if you're moving DNS management.
+
+PART 41 — SSL certificates are NOT simply copied with the EC2
+
+If you currently use an ACM certificate, remember:
+
+ACM certificate
+
+is an AWS resource, not part of the EC2 disk image.
+
+Create/request the appropriate certificate in the new account if you're using ACM.
+
+If your HTTPS certificate is managed directly by Certbot on the EC2 filesystem, that configuration may be present in the AMI, but you should still verify the certificate/domain configuration after the migration.
+
+PART 42 — Check your application after migration
+
+Once the new server is running, test in this order.
+
+1. Server
+curl http://127.0.0.1/
+2. FastAPI
+curl http://127.0.0.1:8000/
+3. Nginx
+curl -I http://127.0.0.1/
+4. API
+curl -i http://127.0.0.1/api/
+
+The exact API endpoint depends on your application.
+
+5. Browser
+
+Open:
+
+http://NEW_IP/
+6. Login
+
+Test:
+
+Login
+7. OPD
+
+Test:
+
+OPD
+Appointments
+Patients
+8. Admin
+
+Open:
+
+http://NEW_IP/admin/
+9. Uploads
+
+Test an uploaded file/image if your application uses them.
+
+PART 43 — Check the logs if something doesn't work
+
+FastAPI:
+
+sudo journalctl -u medos -n 100 --no-pager
+
+Live logs:
+
+sudo journalctl -u medos -f
+
+Nginx:
+
+sudo tail -f /var/log/nginx/error.log
+
+Nginx access log:
+
+sudo tail -f /var/log/nginx/access.log
+
+PostgreSQL:
+
+sudo systemctl status postgresql --no-pager
+PART 44 — The complete migration checklist
+OLD ACCOUNT
+Step 1
+
+Verify EC2:
+
+sudo systemctl status medos
+sudo systemctl status nginx
+sudo systemctl status postgresql
+Step 2
+
+Create AMI:
+
+EC2
+→ Instances
+→ Select MedOS
+→ Actions
+→ Image and templates
+→ Create image
+Step 3
+
+Wait:
+
+AMI → Available
+Step 4
+
+Share:
+
+AMI
+→ Edit AMI permissions
+→ Destination AWS Account ID
+NEW ACCOUNT
+Step 5
+
+Open:
+
+EC2 → AMIs
+
+Find shared AMI.
+
+Step 6
+
+Launch instance.
+
+Step 7
+
+Create/select new SSH key.
+
+Step 8
+
+Create Security Group:
+
+22 → My IP
+80 → Anywhere
+443 → Anywhere
+Step 9
+
+Launch.
+
+Step 10
+
+Get new public IP.
+
+Step 11
+
+SSH:
+
+ssh -i "$HOME\Downloads\medos-new-key.pem" ubuntu@NEW_IP
+Step 12
+
+Verify:
+
+ls /home/ubuntu/medos-backend
+ls /var/www/html
+Step 13
+
+Verify services:
+
+sudo systemctl status medos
+sudo systemctl status nginx
+sudo systemctl status postgresql
+Step 14
+
+Verify API:
+
+curl http://127.0.0.1:8000/
+Step 15
+
+Allocate Elastic IP.
+
+Step 16
+
+Point DNS to new Elastic IP.
+
+Step 17
+
+Configure HTTPS.
+
+Step 18
+
+Update frontend API URL if required.
+
+Step 19
+
+Rebuild frontend.
+
+Step 20
+
+Test the complete MedOS application.
+
+One important recommendation for your MedOS setup
+
+Because your current server contains FastAPI + PostgreSQL + Nginx + React, I would use this migration:
+
+                 OLD AWS ACCOUNT
+                       │
+                       ▼
+                ┌─────────────┐
+                │ MedOS EC2   │
+                │             │
+                │ Ubuntu      │
+                │ FastAPI     │
+                │ PostgreSQL  │
+                │ Nginx       │
+                │ React       │
+                └──────┬──────┘
+                       │
+                    Create AMI
+                       │
+                       ▼
+                ┌─────────────┐
+                │     AMI     │
+                └──────┬──────┘
+                       │
+                  Share Account
+                       │
+                       ▼
+                 NEW AWS ACCOUNT
+                       │
+                       ▼
+                ┌─────────────┐
+                │ New EC2     │
+                │             │
+                │ MedOS       │
+                │ PostgreSQL  │
+                │ Nginx       │
+                └─────────────┘
+                       │
+                  Elastic IP
+                       │
+                       ▼
+                    Domain
+                       │
+                       ▼
+                    HTTPS
+
+This means you do not need to reinstall Ubuntu, Python, FastAPI, PostgreSQL, SQLAdmin, Nginx, your systemd service, or manually upload all of your existing server files again.
+
+One thing I would do before creating the AMI
+
+Make a separate PostgreSQL backup even though the database is being copied:
+
+sudo -u postgres pg_dumpall > /home/ubuntu/postgres_backup.sql
+
+Then verify:
+
+ls -lh /home/ubuntu/postgres_backup.sql
+
+Keep that backup until you've confirmed the new server's database works correctly. This gives you a recovery option if the database migration has a problem.
+
+If your old EC2 uses encrypted EBS volumes, tell me that before you start the AMI sharing step, because the KMS key-sharing procedure is different and needs to be handled correctly.
+
+Currently creating AMI ami-021466fc805a8ff98 from instance i-0802741812e5c260e. Check that the AMI status is 'Available' before deleting the instance or carrying out other actions related to this AMI.
+
+svg

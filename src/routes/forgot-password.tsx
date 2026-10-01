@@ -33,7 +33,9 @@ function Page() {
             onSubmit={(e) => {
               e.preventDefault();
               setSent(true);
-              toast.success("Reset link sent");
+              toast.success("Reset link sent", {
+  duration: 500,
+});
             }}
             className="mt-6 space-y-4"
           >

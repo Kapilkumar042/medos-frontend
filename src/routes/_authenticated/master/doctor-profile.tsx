@@ -37,25 +37,25 @@ export const Route = createFileRoute("/_authenticated/master/doctor-profile")({
 
 const schema = z.object({
   first_name: z.string().min(1, "Required"),
-  last_name: z.string().min(1, "Required"),
-  gender: z.enum(["Male", "Female", "Other"]),
-  email: z.string().email("Invalid email"),
-  phone: z.string().min(6, "Required"),
+  last_name: z.string().optional(),
+  gender: z.enum(["Male", "Female", "Other"]).optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
   altPhone: z.string().optional(),
-  specialization: z.string().min(1, "Required"),
-  qualification: z.string().min(1, "Required"),
-  registration_no: z.string().min(1, "Required"),
+  specialization: z.string().optional(),
+  qualification: z.string().optional(),
+  registration_no: z.string().optional(),
   experience_years: z.coerce.number().min(0),
-  department: z.string().min(1, "Required"),
-  designation: z.string().min(1, "Required"),
-  normal_fee: z.coerce.number().min(0),
-  on_call_fee: z.coerce.number().min(0),
-  emergency_fee: z.coerce.number().min(0).optional(),
-  follow_up_fee: z.coerce.number().min(0).optional(),
+  department: z.string().optional(),
+  designation: z.string().optional(),
+  normal_fee: z.coerce.number().optional(),
+  on_call_fee: z.coerce.number().optional(),
+  emergency_fee: z.coerce.number().optional().optional(),
+  follow_up_fee: z.coerce.number().optional().optional(),
   available_days: z.string().optional(),
   start_time: z.string().optional(),
   end_time: z.string().optional(),
-  status: z.enum(["Active", "Inactive"]),
+  status: z.enum(["Active", "Inactive"]).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -133,15 +133,13 @@ function Page() {
         12,
         "Cardiology",
         "Sr. Consultant",
-        "2015-06-01",
+        300,
         600,
         1500,
         2000,
-        300,
         "Mon–Sat",
         "10:00",
         "17:00",
-        "",
         "Active",
       ],
     ]);
@@ -156,11 +154,15 @@ function Page() {
 
     try {
       await importDoctors(file);
-      await fetchDoctors(); // refresh the list after import
-      toast.success("Imported doctors successfully");
+      // await fetchDoctors(); // refresh the list after import
+      toast.success("Imported doctors successfully", {
+        duration: 500,
+      });
     } catch (err) {
       console.error(err);
-      toast.error("Failed to import doctors");
+      toast.error("Failed to import doctors", {
+        duration: 500,
+      });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -181,23 +183,23 @@ function Page() {
     setEditingId(d.id);
     form.reset({
       first_name: d.first_name,
-      last_name: d.last_name,
-      email: d.email,
-      phone: d.phone,
-      altPhone: d.alt_phone,
-      on_call_fee: d.on_call_fee,
-      emergency_fee: d.emergency_fee,
-      follow_up_fee: d.follow_up_fee,
-      normal_fee: d.normal_fee,
-      specialization: d.specialization,
-      qualification: d.qualification,
-      registration_no: d.registration_no,
-      experience_years: d.experience_years,
-      start_time: d.start_time,
-      end_time: d.end_time,
-      available_days: d.available_days,
-      department: d.department,
-      designation: d.designation,
+      last_name: d.last_name || "",
+      email: d.email || "",
+      phone: d.phone || "",
+      altPhone: d.alt_phone || "",
+      on_call_fee: d.on_call_fee || 0,
+      emergency_fee: d.emergency_fee || 0,
+      follow_up_fee: d.follow_up_fee || 0,
+      normal_fee: d.normal_fee || 0,
+      specialization: d.specialization || "",
+      qualification: d.qualification || "",
+      registration_no: d.registration_no || "",
+      experience_years: d.experience_years || 0,
+      start_time: d.start_time ?? "",
+      end_time: d.end_time ?? "",
+      available_days: d.available_days || "",
+      department: d.department || "",
+      designation: d.designation || "",
     });
     setOpen(true);
   };
@@ -206,12 +208,21 @@ function Page() {
     fetchDoctors();
   }, []);
   const onSubmit = (v: FormValues) => {
+    const payload = {
+      ...v,
+      start_time: v.start_time?.trim() || null,
+      end_time: v.end_time?.trim() || null,
+    };
     if (editingId) {
-      updateDoctor(editingId, v);
-      toast.success("Doctor updated");
+      updateDoctor(editingId, payload);
+      toast.success("Doctor updated", {
+        duration: 500,
+      });
     } else {
       addDoctor(v);
-      toast.success("Doctor added");
+      toast.success("Doctor added", {
+        duration: 500,
+      });
     }
     setOpen(false);
   };
@@ -293,7 +304,9 @@ function Page() {
             className="h-8 w-8 text-destructive"
             onClick={() => {
               removeDoctor(r.id);
-              toast.success("Doctor removed");
+              toast.success("Doctor removed", {
+                duration: 500,
+              });
             }}
           >
             <Trash2 className="h-3.5 w-3.5" />

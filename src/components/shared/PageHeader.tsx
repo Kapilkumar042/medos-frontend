@@ -13,7 +13,7 @@ export function PageHeader({ title, children }: Props) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6"
+      className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-2"
     >
       <div>
         <h1 className=" md:text-xl font-semibold tracking-tight text-foreground">{title}</h1>

@@ -8,7 +8,7 @@ const authHeaders = () => ({
 });
 
 export const getDoctors = async () => {
-  const res = await api.get("/doctors");
+  const res = await api.get("/doctors",{headers: authHeaders(),});
   return res.data;
 };
 

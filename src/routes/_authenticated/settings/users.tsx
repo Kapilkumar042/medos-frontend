@@ -80,7 +80,9 @@ function UsersPage() {
       await axios.post(`${base}/users`, payload, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
-      toast.success("User created");
+      toast.success("User created", {
+  duration: 500,
+});
       setShowModal(false);
       // reset form
       setFullName("");

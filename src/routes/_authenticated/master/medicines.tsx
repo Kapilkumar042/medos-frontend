@@ -5,9 +5,12 @@ export const Route = createFileRoute("/_authenticated/master/medicines")({ compo
 
 const fields: CatalogField[] = [
   { key: "code", label: "Item Code", placeholder: "MED001" },
-  { key: "name", label: "Medicine Name", required: true, placeholder: "Paracetamol 500mg" },
+  { key: "name", label: "Medicine Name", required: true },
   { key: "manufacturer", label: "Manufacturer" },
-  { key: "strength", label: "Strength", placeholder: "500mg" },
+  { key: "strength", label: "Strength" },
+  { key: "packSize", label: "Pack Size" },
+  { key: "unitPrice", label: "Price/Tablet/PC", type: "number" },
+  { key: "dosageType", label: "Dosage Type" },
   {
     key: "form",
     label: "Form",
@@ -30,8 +33,10 @@ function Page() {
       title="Medicines"
       description="Pharmacy medicine master with pricing, batch and stock."
       fields={fields}
-      tableColumns={["code", "name", "manufacturer", "form", "strength", "stock", "mrp"]}
-      priceField="mrp"
+      // tableColumns={["code", "name", "manufacturer", "strength", "stock", "mrp"]}
+      // priceField="mrp"
+      tableColumns={["name", "dosageType", "packSize", "unitPrice", "stock", "mrp","expiry"]}
+      priceField="unitPrice"
       fileBase="medicines"
     />
   );

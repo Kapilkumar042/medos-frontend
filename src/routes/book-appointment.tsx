@@ -150,7 +150,9 @@ function PublicAppointmentPage() {
         notes: form.notes || null,
       });
 
-      toast.success(`Appointment booked. Token #${result.token}`);
+      toast.success(`Appointment booked. Token #${result.token}`, {
+  duration: 500,
+});
 
       setForm((current) => ({
         ...current,

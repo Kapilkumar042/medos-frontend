@@ -33,7 +33,10 @@ export interface CatalogItem {
   expiry?: string;
   stock?: number;
   purchasePrice?: number;
+  packSize?: string;
+  unitPrice?: number;
   mrp?: number;
+  dosageType?: string;
 
   // Department
   head?: string;
@@ -49,6 +52,7 @@ interface CatalogState {
   update: (kind: CatalogKind, id: string, patch: Partial<CatalogItem>) => Promise<CatalogItem>;
   remove: (kind: CatalogKind, id: string) => Promise<void>;
   importCatalog: (kind: CatalogKind, file: File) => Promise<any>;
+  exportCatalog: (kind: Exclude<CatalogKind, "department">) => Promise<Blob>;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
@@ -103,19 +107,34 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       },
     }));
   },
-  importCatalog: async (kind, file) => {
-    const response = await catalogApi.importCatalog(kind, file);
+  // importCatalog: async (kind, file) => {
+  //   const response = await catalogApi.importCatalog(kind, file);
+  //   await get().loadCatalog(kind);
+  //   return {
+  //   message: response?.message ?? "Imported successfully",
+  //   count: response?.count ?? 0,
+  // };
+  //   // set((state) => ({
+  //   //   items: {
+  //   //     ...state.items,
+  //   //     [kind]: [...items, ...state.items[kind]],
+  //   //   },
+  //   // }));
+  //   // return items;
+  // },
+    importCatalog: async (kind, file) => {
+    const response =
+      kind === "department"
+        ? await catalogApi.importCatalog(kind, file)
+        : await catalogApi.importHospitalCatalog(kind, file);
+
     await get().loadCatalog(kind);
+
     return {
-    message: response?.message ?? "Imported successfully",
-    count: response?.count ?? 0,
-  };
-    // set((state) => ({
-    //   items: {
-    //     ...state.items,
-    //     [kind]: [...items, ...state.items[kind]],
-    //   },
-    // }));
-    // return items;
+      message: response?.message ?? "Imported successfully",
+      count: response?.count ?? 0,
+    };
   },
+
+  exportCatalog: (kind) => catalogApi.exportHospitalCatalog(kind),
 }));

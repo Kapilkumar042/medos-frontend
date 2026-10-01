@@ -30,11 +30,13 @@ interface Props<T> {
   onRowClick?: (row: T) => void;
   exportFileName?: string;
   emptyMessage?: string;
+  initialSort?: { key: string; dir: "asc" | "desc" };
 }
 
 export function DataTable<T extends { id: string | number }>({
   data,
   columns,
+  initialSort,
   searchKeys,
   pageSize = 10,
   toolbar,
@@ -43,7 +45,7 @@ export function DataTable<T extends { id: string | number }>({
   emptyMessage = "No records found",
 }: Props<T>) {
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(initialSort ?? null,);
   const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => {
@@ -121,7 +123,7 @@ export function DataTable<T extends { id: string | number }>({
                 <th
                   key={c.key}
                   className={cn(
-                    "text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3",
+                    "text-left text-[13px] font-bold uppercase tracking-wider text-foreground px-4 py-3",
                     c.className,
                   )}
                 >
@@ -136,17 +138,17 @@ export function DataTable<T extends { id: string | number }>({
                             : { key: c.key, dir: "asc" },
                         )
                       }
-                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      className="inline-flex text-foreground  items-center gap-1 hover:text-muted-foreground"
                     >
                       {c.header}
                       {sort?.key === c.key ? (
                         sort.dir === "asc" ? (
-                          <ChevronUp className="h-3 w-3" />
+                          <ChevronUp className="h-3 w-3 " />
                         ) : (
                           <ChevronDown className="h-3 w-3" />
                         )
                       ) : (
-                        <ArrowUpDown className="h-3 w-3 opacity-40" />
+                        <ArrowUpDown className="h-3 w-3 opacity-40 " />
                       )}
                     </button>
                   ) : (

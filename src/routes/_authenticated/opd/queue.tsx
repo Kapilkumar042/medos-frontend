@@ -120,7 +120,9 @@ function Page() {
   const handleRequeue = async (q: QueueRecord) => {
     try {
       await requeueToken(q.id);
-      toast.success(`Token ${q.token_no} added back to queue`);
+      toast.success(`Token ${q.token_no} added back to queue`, {
+  duration: 500,
+});
       loadQueue();
     } catch {
       toast.error("Failed to requeue token");
@@ -130,7 +132,9 @@ function Page() {
   const handleCancel = async (q: QueueRecord) => {
     try {
       await cancelToken(q.id);
-      toast.success(`Token ${q.token_no} cancelled`);
+      toast.success(`Token ${q.token_no} cancelled`, {
+  duration: 500,
+});
       loadQueue();
     } catch {
       toast.error("Failed to cancel token");
@@ -321,7 +325,9 @@ ${hospitalName}`;
                       onClick={async () => {
                         try {
                           await completeConsultation(current.id);
-                          toast.success(`Token ${current.token_no} completed`);
+                          toast.success(`Token ${current.token_no} completed`, {
+  duration: 500,
+});
                           loadQueue();
                         } catch {
                           toast.error("Failed to complete consultation");
@@ -338,7 +344,9 @@ ${hospitalName}`;
                       onClick={async () => {
                         try {
                           await skipToken(current.id);
-                          toast.success(`Token ${current.token_no} skipped`);
+                          toast.success(`Token ${current.token_no} skipped`, {
+  duration: 500,
+});
                           loadQueue();
                         } catch {
                           toast.error("Failed to skip token");
@@ -387,7 +395,9 @@ ${hospitalName}`;
                               onClick={async () => {
                                 try {
                                   await callToken(a.id);
-                                  toast.success(`Token ${a.token_no} called`);
+                                  toast.success(`Token ${a.token_no} called`, {
+  duration: 500,
+});
                                   loadQueue();
                                 } catch {
                                   toast.error("Failed to call token");
@@ -405,7 +415,9 @@ ${hospitalName}`;
                               onClick={async () => {
                                 try {
                                   await startConsultation(a.id);
-                                  toast.success(`Consultation started for ${a.patient.name}`);
+                                  toast.success(`Consultation started for ${a.patient.name}`, {
+  duration: 500,
+});
                                   loadQueue();
                                 } catch {
                                   toast.error("Failed to start consultation");

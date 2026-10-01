@@ -15,7 +15,9 @@ export const titleOptions = [
   { value: "Miss.", label: "Miss" },
   { value: "Master", label: "Master" },
   { value: "Baby", label: "Baby" },
-  { value: "Modh", label: "Modh" },
+  { value: "Mohd", label: "Mohd." },
+  { value: "C/O", label: "C/O" },
+  { value: "B/O", label: "B/O" },
   { value: "Dr.", label: "Dr." },
 ];
 
@@ -37,7 +39,7 @@ export const maritalStatusOptions = [
   { value: "Divorced", label: "Divorced" },
   { value: "Widowed", label: "Widowed" },
   { value: "Separated", label: "Separated" },
-  { value: "Not Specified", label: "Not Specified" },
+  { value: "-", label: "-" },
 ];
 
 export const bloodGroupOptions = [

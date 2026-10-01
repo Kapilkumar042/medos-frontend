@@ -8,11 +8,12 @@ import { useOpdStore, type OpdPatient } from "@/store/opdStore";
 import { useDoctors } from "@/hooks/useDoctors";
 import { opdApi } from "@/lib/opd-api";
 import { inr } from "@/lib/format";
-import { Receipt, BedDouble, Pencil, Trash2, Plus, Search, Loader2 } from "lucide-react";
+import { Receipt, BedDouble, Pencil, Trash2, Plus, Search, Loader2, Download, ReceiptText } from "lucide-react";
 import { toast } from "sonner";
 import { openBillPreview } from "@/lib/opd-bill-print";
 import { MessageCircle } from "lucide-react";
 import { MoreVertical } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +21,34 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CalendarDays, ChevronDown, Filter, RotateCcw } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+import type { DateRange } from "react-day-picker";
 import { useAuthStore } from "@/store/authStore";
+import { useCatalogStore, type CatalogItem } from "@/store/catalogStore";
+import {
+  PatientPaymentSummary,
+  normalizePatientPaymentSummary,
+  type PatientPaymentSummaryData,
+} from "@/components/shared/PatientPaymentSummary";
+import { dashboardApi } from "@/api/dashboardApi";
 
 export const Route = createFileRoute("/_authenticated/opd/patients")({
   component: Page,
@@ -49,8 +77,74 @@ interface Bill {
   status?: string;
 }
 
+type BillCategory =
+  | "Advance"
+  | "Lab Test"
+  | "Radiology"
+  | "Other"
+  | "Medicine"
+  | "Consultation fee";
+
+type BillItem = {
+  category: BillCategory;
+  name: string;
+  code: string;
+  qty: number;
+  amount: number;
+  discount: number;
+  remarks: string;
+};
+
+const newBillItem = (category: BillCategory = "Consultation fee"): BillItem => ({
+  category,
+  name: "",
+  code: "",
+  qty: 1,
+  amount: 0,
+  discount: 0,
+  remarks: "",
+});
+
+type DatePreset = "today" | "yesterday" | "week" | "month" | "year" | "custom";
+
+function formatDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDateRange(preset: DatePreset): DateRange {
+  const today = new Date();
+  const start = new Date(today);
+  const end = new Date(today);
+
+  if (preset === "yesterday") {
+    start.setDate(today.getDate() - 1);
+    end.setDate(today.getDate() - 1);
+  }
+
+  if (preset === "week") {
+    const day = today.getDay();
+    const daysFromMonday = day === 0 ? 6 : day - 1;
+    start.setDate(today.getDate() - daysFromMonday);
+  }
+
+  if (preset === "month") {
+    start.setDate(1);
+  }
+
+  if (preset === "year") {
+    start.setMonth(0, 1);
+  }
+
+  return { from: start, to: end };
+}
 function Page() {
   const hospitalName = useAuthStore((state) => state.hospital?.name ?? "Hospital");
+  const [datePreset, setDatePreset] = useState<DatePreset>("today");
+  const [dateRange, setDateRange] = useState<DateRange>(() => getDateRange("today"));
   const { patients, loading, loadPatients, updatePatient, removePatient } = useOpdStore();
   const { doctors } = useDoctors();
   const navigate = useNavigate();
@@ -58,6 +152,57 @@ function Page() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [visitsLoading, setVisitsLoading] = useState(true);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [billingPatient, setBillingPatient] = useState<OpdPatient | null>(null);
+  const [billingVisitId, setBillingVisitId] = useState<number | null>(null);
+  const [editingBillId, setEditingBillId] = useState<number | null>(null);
+  const [billItems, setBillItems] = useState<BillItem[]>([]);
+  const [totalDiscountAmt, setTotalDiscountAmt] = useState(0);
+  const [totalDiscountPct, setTotalDiscountPct] = useState(0);
+  const [amountPaid, setAmountPaid] = useState(0);
+  const [paymentType, setPaymentType] = useState<"Single Paymode" | "Multi Paymode">(
+    "Single Paymode",
+  );
+  const [paymentMode, setPaymentMode] = useState<"CASH" | "CARD" | "UPI" | "CHEQUE" | "INSURANCE">(
+    "CASH",
+  );
+  const [discountSource, setDiscountSource] = useState<"Hospital Discount" | "Doctor Discount">(
+    "Hospital Discount",
+  );
+  const [billRemark, setBillRemark] = useState("");
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingSaving, setBillingSaving] = useState(false);
+
+  const loadCatalog = useCatalogStore((state) => state.loadCatalog);
+  const labItems = useCatalogStore((state) => state.items.lab);
+  const radiologyItems = useCatalogStore((state) => state.items.radiology);
+  const serviceItems = useCatalogStore((state) => state.items.service);
+  const medicineItems = useCatalogStore((state) => state.items.medicine);
+  const [paymentSummary, setPaymentSummary] =
+  useState<PatientPaymentSummaryData | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      loadCatalog("lab"),
+      loadCatalog("radiology"),
+      loadCatalog("service"),
+      loadCatalog("medicine"),
+    ]).catch(() => toast.error("Failed to load catalog items"));
+  }, [loadCatalog]);
+
+  const catalogForCategory = (category: BillCategory): CatalogItem[] => {
+    switch (category) {
+      case "Lab Test":
+        return labItems;
+      case "Radiology":
+        return radiologyItems;
+      case "Other":
+        return serviceItems;
+      case "Medicine":
+        return medicineItems;
+      default:
+        return [];
+    }
+  };
 
   // const onPrintBill = async (billId: number, patient: OpdPatient, visit: Visit | null) => {
   //   try {
@@ -112,51 +257,70 @@ function Page() {
   //   }
   // };
 
-  const onPrintBill = async (patientId: string | number) => {
-    const printWindow = window.open("", "_blank");
+  // const onPrintBill = async (patientId: string | number) => {
+  //   const printWindow = window.open("", "_blank");
 
-    if (!printWindow) {
-      toast.error("Please allow popups to print the bill");
-      return;
-    }
+  //   if (!printWindow) {
+  //     toast.error("Please allow popups to print the bill");
+  //     return;
+  //   }
 
-    printWindow.document.write(`
-    <html>
-      <body>
-        <p>Generating bill...</p>
-      </body>
-    </html>
-  `);
+  //   printWindow.document.write(`
+  //   <html>
+  //     <body>
+  //       <p>Generating bill...</p>
+  //     </body>
+  //   </html>
+  // `);
 
-    try {
-      const html = await opdApi.printPatient(patientId);
+  //   try {
+  //     const html = await opdApi.printPatient(patientId);
 
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-    } catch (error) {
-      printWindow.close();
-      console.error(error);
-      toast.error("Failed to print bill");
-    }
-  };
-    const onViewPatient = (p: OpdPatient) => {
+  //     printWindow.document.open();
+  //     printWindow.document.write(html);
+  //     printWindow.document.close();
+  //   } catch (error) {
+  //     printWindow.close();
+  //     console.error(error);
+  //     toast.error("Failed to print bill");
+  //   }
+  // };
+  const onViewPatient = (p: OpdPatient) => {
     navigate({
       to: "/opd/patient/$patientId",
       params: { patientId: String(p.id) },
     });
   };
-  useEffect(() => {
-    loadPatients();
-    opdApi
-      .listVisits()
-      .then(setVisits)
-      .catch(console.error)
-      .finally(() => setVisitsLoading(false));
-  }, []);
+  // useEffect(() => {
+  //   loadPatients();
+  //   opdApi
+  //     .listVisits()
+  //     .then(setVisits)
+  //     .catch(console.error)
+  //     .finally(() => setVisitsLoading(false));
+  // }, []);
+
+  // useEffect(() => {
+  //   loadPatients();
+
+  //   Promise.all([opdApi.listVisits().catch(() => []), opdApi.listBills().catch(() => [])])
+  //     .then(([visitsData, billsData]) => {
+  //       setVisits(visitsData);
+  //       setBills(billsData);
+  //     })
+  //     .finally(() => setVisitsLoading(false));
+  // }, []);
 
   useEffect(() => {
-    loadPatients();
+    const from = dateRange.from;
+    const to = dateRange.to ?? dateRange.from;
+
+    if (!from || !to) return;
+
+    loadPatients({
+      start_date: formatDate(from),
+      end_date: formatDate(to),
+    }).catch(console.error);
 
     Promise.all([opdApi.listVisits().catch(() => []), opdApi.listBills().catch(() => [])])
       .then(([visitsData, billsData]) => {
@@ -164,8 +328,7 @@ function Page() {
         setBills(billsData);
       })
       .finally(() => setVisitsLoading(false));
-  }, []);
-
+  }, [dateRange, loadPatients]);
   function normalizeWhatsAppNumber(value?: string) {
     const digits = String(value ?? "").replace(/\D/g, "");
 
@@ -241,14 +404,130 @@ ${hospitalName}`;
 
   const onTransferIPD = (p: OpdPatient) => {
     updatePatient(p.id, { status: "Transferred to IPD" });
-    toast.success(`${p.name} transferred to IPD`);
+    toast.success(`${p.name} transferred to IPD`, {
+      duration: 500,
+    });
     navigate({ to: "/ipd/admission" });
   };
 
-  const onMakeBilling = async (p: OpdPatient) => {
-    await onPrintBill(p.id);
+  const onPrintBill = async (patient: OpdPatient) => {
+    const bill = getLatestBill(patient.id);
+    if (!bill) {
+      toast.error("No bill found for this patient");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Please allow popups to print the bill");
+      return;
+    }
+
+    try {
+      const html = await opdApi.printBill(bill.id);
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } catch (error) {
+      printWindow.close();
+      console.error(error);
+      toast.error("Failed to print bill");
+    }
+  };
+  const onMakeBilling = async (patient: OpdPatient) => {
+    setBillingLoading(true);
+    setBillingPatient(patient);
+
+    try {
+      const visit = getLatestVisit(patient.id);
+      const existingBill = getLatestBill(patient.id);
+      const bill = existingBill ? await opdApi.getBill(existingBill.id) : null;
+
+      const rawItems = bill?.items ?? [];
+      const parsedItems = typeof rawItems === "string" ? JSON.parse(rawItems) : rawItems;
+
+      setBillingVisitId(visit?.id ?? bill?.visit_id ?? null);
+      setEditingBillId(bill ? Number(bill.id) : null);
+      setBillItems(
+        Array.isArray(parsedItems) && parsedItems.length
+          ? parsedItems.map((item: Partial<BillItem>) => ({
+              ...newBillItem(),
+              ...item,
+              qty: Number(item.qty) || 1,
+              amount: Number(item.amount) || 0,
+              discount: Number(item.discount) || 0,
+            }))
+          : [newBillItem()],
+      );
+      setTotalDiscountAmt(Number(bill?.total_discount) || 0);
+      setTotalDiscountPct(0);
+      setAmountPaid(Number(bill?.paid_amount) || 0);
+      setPaymentType("Single Paymode");
+      setPaymentMode(String(bill?.payment_mode ?? "CASH").toUpperCase() as typeof paymentMode);
+      setDiscountSource("Hospital Discount");
+      setBillRemark(bill?.remark ?? "");
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not load bill details");
+      setBillingPatient(null);
+    } finally {
+      setBillingLoading(false);
+    }
   };
 
+  const subtotal = billItems.reduce((sum, item) => sum + item.qty * item.amount, 0);
+  const itemDiscount = billItems.reduce((sum, item) => sum + item.discount, 0);
+  const discountBase = Math.max(0, subtotal - itemDiscount);
+  const billDiscount = Math.min(discountBase, totalDiscountAmt);
+  const netAmount = Math.max(0, discountBase - billDiscount);
+
+  const updateBillItem = (index: number, patch: Partial<BillItem>) => {
+    setBillItems((current) =>
+      current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const saveBilling = async () => {
+    if (!billingPatient) return;
+
+    setBillingSaving(true);
+    try {
+      const payload = {
+        patient_id: billingPatient.id,
+        visit_id: billingVisitId,
+        total_amount: subtotal,
+        total_discount: billDiscount,
+        net_amount: netAmount,
+        paid_amount: Number(amountPaid) || 0,
+        payment_mode: paymentMode,
+        remark: billRemark,
+        items: billItems.map((item) => ({
+          category: item.category,
+          name: item.name,
+          code: item.code,
+          qty: Number(item.qty),
+          amount: Number(item.amount),
+          discount: Number(item.discount),
+          remarks: item.remarks,
+        })),
+      };
+
+      if (editingBillId) {
+        await opdApi.updateBill(editingBillId, payload);
+      } else {
+        await opdApi.createBill(payload);
+      }
+
+      setBills(await opdApi.listBills());
+      toast.success(editingBillId ? "Bill updated" : "Bill created");
+      setBillingPatient(null);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save bill");
+    } finally {
+      setBillingSaving(false);
+    }
+  };
   const onEdit = (p: OpdPatient) => {
     navigate({
       to: "/opd/registration",
@@ -258,12 +537,86 @@ ${hospitalName}`;
 
   const isLoading = loading || visitsLoading;
 
+  useEffect(() => {
+  let active = true;
+
+  const startDate = dateRange.from ? formatDate(dateRange.from) : undefined;
+  const endDate = dateRange.to
+    ? formatDate(dateRange.to)
+    : dateRange.from
+      ? formatDate(dateRange.from)
+      : undefined;
+
+  setPaymentSummary(null);
+
+  void dashboardApi
+    .getOpd({
+      period: "custom",
+      start_date: startDate,
+      end_date: endDate,
+    })
+    .then((response) => {
+      if (active) setPaymentSummary(normalizePatientPaymentSummary(response));
+    })
+    .catch(() => {
+      if (active) toast.error("Failed to load IPD payment summary");
+    });
+
+  return () => {
+    active = false;
+  };
+}, [dateRange]);
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  }
+  const handleExport = async (fileFormat: "xlsx" | "pdf") => {
+    const from = dateRange.from;
+    const to = dateRange.to ?? dateRange.from;
+
+    if (!from || !to) {
+      toast.error("Select a date range first");
+      return;
+    }
+
+    try {
+      const blob = await opdApi.exportPatients({
+        start_date: formatDate(from),
+        end_date: formatDate(to),
+        file_format: fileFormat,
+      });
+
+      downloadBlob(blob, `opd-patients-${formatDate(from)}-to-${formatDate(to)}.${fileFormat}`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export OPD patients");
+    }
+  };
+
   return (
     <>
       <PageHeader
         title="OPD Patients"
         description="OPD registered patients — make billing, transfer to IPD, or edit details."
       >
+        <Button variant="outline" onClick={() => handleExport("xlsx")}>
+          <Download className="mr-1.5 h-4 w-4" />
+          Export Excel
+        </Button>
+
+        <Button variant="outline" onClick={() => handleExport("pdf")}>
+          <Download className="mr-1.5 h-4 w-4" />
+          Export PDF
+        </Button>
         <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">
           <Link to="/opd/registration">
             <Plus className="h-4 w-4 mr-1.5" /> New Registration
@@ -273,14 +626,90 @@ ${hospitalName}`;
 
       <div className="rounded-2xl bg-card border border-border shadow-soft">
         <div className="p-4 border-b border-border flex items-center gap-2">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name, UHID, mobile…"
-              className="pl-9"
-            />
+          <div className="flex items-center justify-between gap-3">
+            {/* Search left */}
+            <div className="relative w-96 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={q}
+                onChange={(event) => setQ(event.target.value)}
+                placeholder="Search by name, UHID, mobile..."
+                className="pl-9"
+              />
+            </div>
+
+            {/* Filters right */}
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="min-w-[330px] justify-between">
+                    <span>
+                      {dateRange.from
+                        ? `${formatDate(dateRange.from)}  →  ${formatDate(
+                            dateRange.to ?? dateRange.from,
+                          )}`
+                        : "Select date range"}
+                    </span>
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    numberOfMonths={2}
+                    onSelect={(range) => {
+                      if (!range?.from) return;
+
+                      setDatePreset("custom");
+                      setDateRange(range);
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-44">
+                  {[
+                    ["today", "Today"],
+                    ["yesterday", "Yesterday"],
+                    ["week", "This Week"],
+                    ["month", "This Month"],
+                    ["year", "This Year"],
+                  ].map(([value, label]) => (
+                    <DropdownMenuItem
+                      key={value}
+                      onClick={() => {
+                        const preset = value as DatePreset;
+                        setDatePreset(preset);
+                        setDateRange(getDateRange(preset));
+                      }}
+                    >
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDatePreset("custom");
+                    }}
+                  >
+                    Custom Date Range
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <div className="ml-auto text-xs text-muted-foreground">
             {rows.length} of {patients.length} patients
@@ -329,20 +758,32 @@ ${hospitalName}`;
                   const visit = getLatestVisit(p.id);
                   const bill = getLatestBill(p.id);
                   return (
-                    <tr key={p.id} className="border-t border-border hover:bg-muted/30">
+                    <tr
+                      key={p.id}
+                      className={`border-t border-border ${
+                        p.status === "Billed"
+                          ? "bg-green-50 hover:bg-green-100"
+                          : p.status === "Transferred to IPD"
+                            ? "bg-blue-50 hover:bg-blue-100"
+                            : p.status === "Registered" || !p.status
+                              ? "bg-yellow-50 hover:bg-yellow-100"
+                              : "bg-yellow-50 hover:bg-yellow-100"
+                      }`}
+                      //  className="border-t border-border hover:bg-muted/30"
+                    >
                       <td className="px-4 py-2 font-mono text-xs">{p.uhid ?? "—"}</td>
                       <td className="px-4 py-2">
-  <button
-    type="button"
-    onClick={() => onViewPatient(p)}
-    className="font-medium text-primary hover:underline text-left"
-  >
-    {p.name}
-  </button>
-  <div className="text-xs text-muted-foreground">
-    {p.gender} • {p.bloodGroup}
-  </div>
-</td>
+                        <button
+                          type="button"
+                          onClick={() => onViewPatient(p)}
+                          className="font-medium text-primary hover:underline text-left"
+                        >
+                          {p.name}
+                        </button>
+                        <div className="text-xs text-muted-foreground">
+                          {p.gender} • {p.bloodGroup}
+                        </div>
+                      </td>
                       <td className="px-4 py-2">{p.mobile}</td>
                       <td className="px-4 py-2">
                         <div className="text-xs font-medium">
@@ -443,10 +884,13 @@ ${hospitalName}`;
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-
                             <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => void onMakeBilling(p)}>
+                                <ReceiptText className="mr-1.5 h-3.5 w-3.5" />
+                                Billing
+                              </DropdownMenuItem>
                               {bill && (
-                                <DropdownMenuItem onClick={() => onMakeBilling(p)}>
+                                <DropdownMenuItem onClick={() => onPrintBill(p)}>
                                   <Receipt className="h-4 w-4 mr-2" />
                                   {"Print Bill"}
                                 </DropdownMenuItem>
@@ -476,7 +920,9 @@ ${hospitalName}`;
                                 onClick={() => {
                                   if (confirm(`Delete ${p.name}?`)) {
                                     removePatient(p.id);
-                                    toast.success("Patient deleted");
+                                    toast.success("Patient deleted", {
+                                      duration: 500,
+                                    });
                                   }
                                 }}
                               >
@@ -493,7 +939,406 @@ ${hospitalName}`;
             </tbody>
           </table>
         </div>
+        <PatientPaymentSummary title="OPD Payment Summary" summary={paymentSummary} />
       </div>
+      <Dialog open={!!billingPatient} onOpenChange={(open) => !open && setBillingPatient(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Billing{billingPatient ? `: ${billingPatient.name}` : ""}</DialogTitle>
+            <DialogDescription>
+              Update bill details. Patient and visit records are not changed here.
+            </DialogDescription>
+          </DialogHeader>
+
+          {billingLoading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading bill…</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="p-2 text-left">Purpose</th>
+                      <th className="p-2 text-left">Item Name</th>
+                      <th className="p-2 text-left">Code</th>
+                      <th className="p-2 text-right">Qty</th>
+                      <th className="p-2 text-right">Amount</th>
+                      <th className="p-2 text-right">Discount</th>
+                      <th className="p-2 text-right">Net Amt</th>
+                      <th className="p-2 text-left">Remarks</th>
+                      <th className="p-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billItems.map((item, index) => {
+                      const catalog: CatalogItem[] = catalogForCategory(item.category);
+                      const selected = catalog.find(
+                        (entry) =>
+                          (item.code &&
+                            (String(entry.code ?? "") === item.code ||
+                              String(entry.id ?? "") === item.code)) ||
+                          (item.name && entry.name === item.name),
+                      );
+                      const selectedValue = selected
+                        ? String(selected.id || selected.code || selected.name)
+                        : "";
+                      const selectedDoctor = doctors.find(
+                        (doctor) =>
+                          String(doctor.id) === item.code ||
+                          `Dr. ${doctor.first_name} ${doctor.last_name}` === item.name,
+                      );
+
+                      return (
+                        <tr key={index} className="border-t border-border">
+                          <td className="p-2">
+                            <Select
+                              value={item.category}
+                              onValueChange={(value) =>
+                                updateBillItem(index, { category: value as BillCategory })
+                              }
+                            >
+                              <SelectTrigger className="min-w-36">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[
+                                  "Advance",
+                                  "Lab Test",
+                                  "Radiology",
+                                  "Other",
+                                  "Medicine",
+                                  "Consultation fee",
+                                ].map((category) => (
+                                  <SelectItem key={category} value={category}>
+                                    {category}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+
+                          <td className="p-2">
+                            {item.category === "Consultation fee" ? (
+                              <Select
+                                value={selectedDoctor ? String(selectedDoctor.id) : ""}
+                                onValueChange={(value) => {
+                                  const doctor = doctors.find((entry) => String(entry.id) === value);
+                                  if (!doctor) return;
+
+                                  updateBillItem(index, {
+                                    name: `Dr. ${doctor.first_name} ${doctor.last_name}`,
+                                    code: String(doctor.id),
+                                    amount: Number(doctor.normal_fee) || 0,
+                                  });
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select consultant doctor…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {doctors
+                                    .filter((doctor) => doctor.status)
+                                    .map((doctor) => (
+                                      <SelectItem key={doctor.id} value={String(doctor.id)}>
+                                        Dr. {doctor.first_name} {doctor.last_name} - Fee: {inr(doctor.normal_fee)}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            ) : catalog.length > 0 ? (
+                              <Select
+                                value={selectedValue}
+                                onValueChange={(value) => {
+                                  const selectedItem = catalog.find(
+                                    (entry) =>
+                                      String(entry.id || entry.code || entry.name) === value,
+                                  );
+                                  if (!selectedItem) return;
+
+                                  updateBillItem(index, {
+                                    name: selectedItem.name,
+                                    code:
+                                      selectedItem.code ||
+                                      String(selectedItem.id || selectedItem.name),
+                                    amount: Number(
+                                      selectedItem.unitPrice ??
+                                        selectedItem.price ??
+                                        selectedItem.mrp ??
+                                        0,
+                                    ),
+                                  });
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select item…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {catalog
+                                    .slice()
+                                    .sort((a, b) =>
+                                      a.name.localeCompare(b.name, undefined, {
+                                        sensitivity: "base",
+                                        numeric: true,
+                                      }),
+                                    )
+                                    .map((entry) => (
+                                      <SelectItem
+                                        key={String(entry.id || entry.code || entry.name)}
+                                        value={String(entry.id || entry.code || entry.name)}
+                                      >
+                                        {entry.name}{" "}
+                                        {entry.expiry && (
+                                          <span className="text-xs text-muted-foreground">
+                                            Exp: ({entry.expiry})
+                                          </span>
+                                        )}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                value={item.name}
+                                onChange={(event) =>
+                                  updateBillItem(index, { name: event.target.value })
+                                }
+                                placeholder="Item name"
+                              />
+                            )}
+                          </td>
+
+                          <td className="p-2">
+                            <Input
+                              value={item.code}
+                              onChange={(event) =>
+                                updateBillItem(index, { code: event.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={item.qty || ""}
+                              onKeyDown={(event) => {
+                                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                                  event.preventDefault();
+                                }
+                              }}
+                              onWheel={(event) => event.currentTarget.blur()}
+                              onChange={(event) =>
+                                updateBillItem(index, {
+                                  qty: Math.max(0, Math.floor(Number(event.target.value) || 0)),
+                                })
+                              }
+                              onBlur={() =>
+                                updateBillItem(index, {
+                                  qty: Math.max(1, Math.floor(Number(item.qty) || 1)),
+                                })
+                              }
+                              className="w-20"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={item.amount}
+                              onChange={(event) =>
+                                updateBillItem(index, { amount: Number(event.target.value) || 0 })
+                              }
+                              className="w-24"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={item.discount}
+                              onChange={(event) =>
+                                updateBillItem(index, { discount: Number(event.target.value) || 0 })
+                              }
+                              className="w-24"
+                            />
+                          </td>
+                          <td className="p-2 text-right font-medium">
+                            <Input
+                              className="w-24 bg-muted/40 text-right"
+                              value={Math.max(0, item.qty * item.amount - item.discount)}
+                              readOnly
+                              tabIndex={-1}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              value={item.remarks}
+                              onChange={(event) =>
+                                updateBillItem(index, { remarks: event.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="p-2">
+                            <div className="flex items-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Add bill item"
+                                title="Add bill item"
+                                onClick={() =>
+                                  setBillItems((current) => [
+                                    ...current,
+                                    newBillItem(item.category),
+                                  ])
+                                }
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Remove bill item"
+                                title="Remove bill item"
+                                onClick={() =>
+                                  setBillItems((current) =>
+                                    current.filter((_, itemIndex) => itemIndex !== index),
+                                  )
+                                }
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Total Amount">
+                  <Input value={subtotal} readOnly />
+                </Field>
+                <Field label="Total Discount">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={totalDiscountAmt}
+                    onChange={(event) => setTotalDiscountAmt(Number(event.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Discount (%)">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={totalDiscountPct}
+                    onChange={(event) => {
+                      const percent = Math.min(100, Math.max(0, Number(event.target.value) || 0));
+                      setTotalDiscountPct(percent);
+                      setTotalDiscountAmt((discountBase * percent) / 100);
+                    }}
+                  />
+                </Field>
+                <Field label="Net Amount">
+                  <Input value={netAmount} readOnly />
+                </Field>
+                <Field label="Payment Type">
+                  <Select
+                    value={paymentType}
+                    onValueChange={(value: typeof paymentType) => setPaymentType(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Single Paymode">Single Paymode</SelectItem>
+                      <SelectItem value="Multi Paymode">Multi Paymode</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Pay Mode">
+                  <Select
+                    value={paymentMode}
+                    onValueChange={(value: typeof paymentMode) => setPaymentMode(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"].map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {mode}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Amount Paid">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={amountPaid}
+                    onChange={(event) => setAmountPaid(Number(event.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Offer By">
+                  <Select
+                    value={discountSource}
+                    onValueChange={(value: typeof discountSource) => setDiscountSource(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Hospital Discount">Hospital Discount</SelectItem>
+                      <SelectItem value="Doctor Discount">Doctor Discount</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Discount Reason">
+                  <Input
+                    value={billRemark}
+                    onChange={(event) => setBillRemark(event.target.value)}
+                  />
+                </Field>
+              </div>
+            </>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBillingPatient(null)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveBilling} disabled={billingLoading || billingSaving}>
+              {billingSaving ? "Saving…" : editingBillId ? "Update Bill" : "Save Bill"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function Field({
+  label,
+  children,
+  error,
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  error?: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <Label className="text-[15px]">{label}</Label>
+      <div className="mt-1">{children}</div>
+      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+    </div>
   );
 }

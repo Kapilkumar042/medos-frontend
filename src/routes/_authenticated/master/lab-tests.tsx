@@ -5,7 +5,7 @@ const fields: CatalogField[] = [
   { key: "code", label: "Test Code", placeholder: "CBC" },
   { key: "name", label: "Test Name", required: true, placeholder: "Complete Blood Count" },
   {
-    key: "category",
+    key: "department",
     label: "Category",
     type: "select",
     options: [
@@ -32,7 +32,7 @@ function Page() {
       title="Lab Tests"
       description="Master catalog of laboratory tests, sample types and pricing."
       fields={fields}
-      tableColumns={["code", "name", "category", "sampleType", "reportTime", "price"]}
+      tableColumns={["code", "name", "department", "sampleType", "reportTime", "price"]}
       priceField="price"
       fileBase="lab-tests"
     />

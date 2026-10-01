@@ -49,6 +49,7 @@ import {
 import {
   getAppointments,
   createAppointment,
+  updateAppointment,
   updateAppointmentStatus,
   deleteAppointment,
   acceptAppointment,
@@ -100,6 +101,8 @@ function Page() {
   const { doctors, loading: doctorsLoading } = useDoctors();
   const [open, setOpen] = useState(false);
   const [reschedFor, setReschedFor] = useState<AppointmentRecord | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
   const getCurrentTime = () => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(
@@ -164,6 +167,115 @@ ${hospitalName}`;
       "noopener,noreferrer",
     );
   };
+
+  const openEditableWhatsApp = (
+    appointment: AppointmentRecord,
+    defaultMessage: string,
+    popup: Window | null,
+  ) => {
+    if (!popup) {
+      toast.error("Please allow popups to open WhatsApp");
+      return;
+    }
+
+    const message = window.prompt("Review or edit the WhatsApp message", defaultMessage);
+    if (message === null) {
+      popup.close();
+      return;
+    }
+
+    const digits = appointment.phone.replace(/\D/g, "");
+    const whatsappPhone = digits.length === 10 ? `91${digits}` : digits;
+    popup.location.href = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+  };
+
+  const appointmentMessage = (
+    appointment: AppointmentRecord,
+    intro: string,
+    date = appointment.appointment_date,
+    time = appointment.appointment_time,
+  ) => `Dear ${appointment.patient_name},\n\n${intro}\n\nDate: ${date}\nTime: ${time}\n\nThank you,\n${hospitalName}`;
+
+  const acceptAndNotify = async (appointment: AppointmentRecord) => {
+    const whatsappWindow = window.open("about:blank", "_blank");
+    try {
+      await acceptAppointment(appointment.id);
+      await loadAppointments();
+      toast.success(`Accepted #${appointment.token}`, { duration: 500 });
+      openEditableWhatsApp(
+        appointment,
+        appointmentMessage(appointment, "Your appointment has been accepted."),
+        whatsappWindow,
+      );
+    } catch (error) {
+      whatsappWindow?.close();
+      console.error(error);
+      toast.error("Failed to accept appointment");
+    }
+  };
+
+  const requestCallAndNotify = async (appointment: AppointmentRecord) => {
+    const whatsappWindow = window.open("about:blank", "_blank");
+    const message = window.prompt(
+      "Review or edit the WhatsApp message",
+      appointmentMessage(
+        appointment,
+        "We received your request. Our team will call you shortly.",
+      ),
+    );
+
+    try {
+      await updateAppointmentStatus(appointment.id, "Call Requested");
+      await loadAppointments();
+      toast.success("Call requested", { duration: 500 });
+
+      if (message === null) {
+        whatsappWindow?.close();
+        return;
+      }
+      if (!whatsappWindow) {
+        toast.error("Please allow popups to open WhatsApp");
+        return;
+      }
+
+      const digits = appointment.phone.replace(/\D/g, "");
+      const whatsappPhone = digits.length === 10 ? `91${digits}` : digits;
+      whatsappWindow.location.href = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+    } catch (error) {
+      whatsappWindow?.close();
+      console.error(error);
+      toast.error("Failed to request a call");
+    }
+  };
+
+  const rescheduleAppointment = async (date: string, time: string) => {
+    if (!reschedFor) return;
+    if (!date || !time) {
+      toast.error("Select both a date and time");
+      return;
+    }
+
+    const whatsappWindow = window.open("about:blank", "_blank");
+    try {
+      await updateAppointment(reschedFor.id, {
+        appointment_date: date,
+        appointment_time: time,
+        status: "Re-scheduled",
+      });
+      await loadAppointments();
+      toast.success(`Rescheduled #${reschedFor.token}`, { duration: 500 });
+      openEditableWhatsApp(
+        reschedFor,
+        appointmentMessage(reschedFor, "Your appointment has been rescheduled.", date, time),
+        whatsappWindow,
+      );
+      setReschedFor(null);
+    } catch (error) {
+      whatsappWindow?.close();
+      console.error(error);
+      toast.error("Failed to reschedule appointment");
+    }
+  };
   const submit = async () => {
     if (!form.patientName || !form.phone) {
       toast.error("Patient name and phone are required");
@@ -192,7 +304,9 @@ ${hospitalName}`;
 
       await loadAppointments();
 
-      toast.success("Appointment booked");
+      toast.success("Appointment booked", {
+  duration: 500,
+});
       openWhatsApp(form.phone, form.patientName, form.date, form.time);
       setOpen(false);
       resetForm();
@@ -283,13 +397,8 @@ ${hospitalName}`;
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
-              onClick={async () => {
-                await acceptAppointment(r.id);
-
-                await loadAppointments();
-
-                toast.success(`Accepted #${r.token}`);
-              }}
+              disabled={r.status === "Accepted"}
+              onClick={() => void acceptAndNotify(r)}
             >
               <Check className="h-4 w-4 mr-2 text-success" /> Accept
             </DropdownMenuItem>
@@ -299,28 +408,24 @@ ${hospitalName}`;
 
                 await loadAppointments();
 
-                toast.success("Appointment cancelled");
+                toast.success("Appointment cancelled", {
+  duration: 500,
+});
               }}
             >
               <X className="h-4 w-4 mr-2 text-destructive" /> Cancel
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={async () => {
-                await updateAppointmentStatus(r.id, "Rescheduled");
-                await loadAppointments();
-                toast.success("Appointment rescheduled");
+              onClick={() => {
+                setRescheduleDate(r.appointment_date);
+                setRescheduleTime(r.appointment_time);
+                setReschedFor(r);
               }}
             >
               <CalendarClock className="h-4 w-4 mr-2 text-info" /> Re-schedule
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={async () => {
-                await updateAppointmentStatus(r.id, "Call Requested");
-
-                await loadAppointments();
-
-                toast.success("Call requested");
-              }}
+              onClick={() => void requestCallAndNotify(r)}
             >
               <PhoneCall className="h-4 w-4 mr-2 text-warning" /> Request for Call
             </DropdownMenuItem>
@@ -330,7 +435,9 @@ ${hospitalName}`;
               onClick={async () => {
                 await deleteAppointment(r.id);
                 await loadAppointments();
-                toast.success("Appointment deleted");
+                toast.success("Appointment deleted", {
+  duration: 500,
+});
               }}
             >
               <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -552,53 +659,37 @@ ${hospitalName}`;
           <DialogHeader>
             <DialogTitle>Re-schedule Appointment</DialogTitle>
           </DialogHeader>
-          {/* {reschedFor && (
-            <RescheduleForm
-              initialDate={reschedFor.appointment_date}
-              initialTime={reschedFor.time}
-              onSubmit={(date, time) => {
-                update(reschedFor.id, { date, time, status: "Re-scheduled" });
-                toast.success(`Re-scheduled #${reschedFor.token}`);
-                setReschedFor(null);
-              }}
-            />
-          )} */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="reschedule-date">New Date</Label>
+              <Input
+                id="reschedule-date"
+                type="date"
+                value={rescheduleDate}
+                onChange={(event) => setRescheduleDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="reschedule-time">New Time</Label>
+              <Input
+                id="reschedule-time"
+                type="time"
+                value={rescheduleTime}
+                onChange={(event) => setRescheduleTime(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setReschedFor(null)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void rescheduleAppointment(rescheduleDate, rescheduleTime)}>
+              Update Appointment
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-function RescheduleForm({
-  initialDate,
-  initialTime,
-  onSubmit,
-}: {
-  initialDate: string;
-  initialTime: string;
-  onSubmit: (date: string, time: string) => void;
-}) {
-  const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState(initialTime);
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <Label>New Date</Label>
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </div>
-      <div className="space-y-1.5">
-        <Label>New Time</Label>
-        <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-      </div>
-      <div className="flex justify-end">
-        <Button
-          onClick={() => onSubmit(date, time)}
-          className="text-white border-0 hover:opacity-90"
-          style={{ backgroundColor: "#2D5CF2" }}
-        >
-          Confirm
-        </Button>
-      </div>
-    </div>
-  );
-}

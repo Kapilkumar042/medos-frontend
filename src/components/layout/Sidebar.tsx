@@ -25,6 +25,7 @@ import {
   Activity,
   Sparkles,
   QrCode,
+  PhoneCall
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
@@ -61,6 +62,7 @@ const groups: Group[] = [
       // { label: "Token Queue", to: "/opd/tokens", icon: ListOrdered },
       { label: "Prescriptions", to: "/opd/prescriptions", icon: FileText },
       { label: "Patient List", to: "/opd/patients", icon: Receipt },
+      { label: "Follow Up", to: "/opd/follow-up", icon: PhoneCall },
       // { label: "Patient EMR", to: "/opd/emr", icon: HeartPulse },
       // { label: "Certificates", to: "/opd/certificates", icon: Award },
     ],
@@ -168,7 +170,7 @@ export function Sidebar() {
     <aside
       className={cn(
         "fixed top-0 left-0 z-40 h-screen border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-out",
-        collapsed ? "w-[72px]" : "w-[260px]",
+        collapsed ? "w-[72px]" : "w-[200px]",
         "hidden md:flex flex-col",
       )}
     >
@@ -178,12 +180,12 @@ export function Sidebar() {
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <div className="font-semibold text-sidebar-foreground/80 text-sm tracking-tight">
+            <div className="font-semibold text-sidebar-foreground/80 text-[18px] tracking-[2px]">
               Ncuresoft
             </div>
-            <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">
-              Hospital ERP
-            </div>
+            {/* <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">
+              Hospital Software
+            </div> */}
           </div>
         )}
       </div>
@@ -207,7 +209,7 @@ export function Sidebar() {
                 <g.icon className="h-4 w-4 shrink-0" />
                 {!collapsed && (
                   <>
-                    <span className="flex-1 text-left text-xs uppercase tracking-wider opacity-75">
+                    <span className="flex-1 text-black font-bold text-left text-xs uppercase tracking-wider opacity-75">
                       {g.title}
                     </span>
                     <ChevronDown
@@ -236,7 +238,7 @@ export function Sidebar() {
                               collapsed && "justify-center px-2",
                               active
                                 ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-glow"
-                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-black",
+                                : "text-black hover:bg-sidebar-accent hover:text-black",
                             )}
                             title={collapsed ? item.label : undefined}
                           >

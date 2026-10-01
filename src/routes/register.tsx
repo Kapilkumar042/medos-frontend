@@ -113,7 +113,9 @@ function RegisterPage() {
         address,
         modules,
       });
-      toast.success("Hospital registered! Please sign in.");
+      toast.success("Hospital registered! Please sign in.", {
+  duration: 500,
+});
       navigate({ to: "/login" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");

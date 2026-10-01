@@ -20,7 +20,12 @@ api.interceptors.request.use((config) => {
 
 export const opdApi = {
   // Patients
-  listPatients: () => api.get("/opd/patients").then((r) => r.data),
+  // listPatients: () => api.get("/opd/patients").then((r) => r.data),
+  listPatients: (params?: { start_date?: string; end_date?: string }) =>
+  api.get("/opd/patients", { params }).then((r) => {
+    const data = r.data;
+    return Array.isArray(data) ? data : data.results ?? data.data ?? [];
+  }),
 
   getPatient: (id: string) =>
     api.get(`/opd/patients/${id}`).then((r) => {
@@ -40,7 +45,18 @@ export const opdApi = {
         visitDate: p.visit_date ?? p.visitDate ?? "",
       };
     }),
+exportPatients: async (params: {
+    start_date: string;
+    end_date: string;
+    file_format: "xlsx" | "pdf";
+  }) => {
+    const response = await api.get("/opd/patients/export", {
+      params,
+      responseType: "blob",
+    });
 
+    return response.data;
+  },
   createPatient: (data: any) => {
     const payload = {
       name: data.name,
@@ -93,6 +109,9 @@ export const opdApi = {
   getBillShareLink: (billId: string | number) =>
     api.get(`/opd/bills/${billId}/share-link`).then((response) => response.data),
 
+  getPatientPaymentSummary: (params?: { start_date?: string; end_date?: string }) =>
+  api.get("/opd/patients/payment-summary", { params }).then((r) => r.data),
+  
   updatePatient: (id: string, data: any) =>
     api.put(`/opd/patients/${id}`, data).then((r) => r.data),
   updateVisit: (id: string | number, payload: any) =>

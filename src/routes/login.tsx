@@ -51,7 +51,9 @@ function LoginPage() {
     setSubmitting(true);
     try {
       await login(data.email, data.password);
-      toast.success("Welcome back!");
+      toast.success("Welcome back!", {
+  duration: 500,
+});
       navigate({ to: "/opd/registration" });
     } catch {
       toast.error("Login failed");

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "sonner";
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_APP_API_URL,
@@ -17,6 +18,12 @@ API.interceptors.request.use((config) => {
 /* --------------------------
    IPD Admission
 ---------------------------*/
+export type IpdAdmissionFilters = {
+  start_date?: string;
+  end_date?: string;
+  status?: "Admitted" | "Observation" | "Pending" | "Discharged";
+  dues_only?: boolean;
+};
 
 export const admitNewPatient = async (
   data: any
@@ -62,12 +69,16 @@ export const admitFromOPD = async (
   return res.data;
 };
 
-export const getAdmissions = async () => {
-  const res = await API.get(
-    "/ipd"
-  );
+export const getAdmissions = async (filters?: IpdAdmissionFilters) => {
+  const res = await API.get("/ipd", {
+    params: {
+      ...filters,
+      dues_only: filters?.dues_only ? true : undefined,
+    },
+  });
 
-  return res.data;
+  const data = res.data;
+  return Array.isArray(data) ? data : data.results ?? data.data ?? [];
 };
 
 export const getAdmission = async (
@@ -80,6 +91,42 @@ export const getAdmission = async (
   return res.data;
 };
 
+export const exportIPDPatients = async (params: {
+  start_date: string;
+  end_date: string;
+  status?: string;
+  dues_only?: boolean;
+  file_format: "xlsx" | "pdf";
+}) => {
+  const res = await API.get("/ipd/export", {
+    params: {
+      ...params,
+      dues_only: params.dues_only || undefined,
+    },
+    responseType: "blob",
+  });
+
+  return res.data;
+};
+
+
+
+export const updateAdmission = async (
+  admissionId: number,
+  data: Record<string, unknown>
+) => {
+  const res = await API.put(`/ipd/${admissionId}`, data);
+  return res.data;
+};
+
+export const deleteAdmission = async (admissionId: number) => {
+  const res = await API.delete(`/ipd/${admissionId}`);
+  return res.data;
+};
+export const getIPDPatientPaymentSummary = async (filters?: IpdAdmissionFilters) => {
+  const res = await API.get("/ipd/payment-summary", { params: filters });
+  return res.data;
+};
 export const dischargePatient = async (
   admissionId: number
 ) => {
@@ -135,35 +182,42 @@ export const createIPDBill = async (
 };
 
 export const getIPDBills = async () => {
-  const res = await API.get(
-    "/ipd-billing"
-  );
-
+  const res = await API.get("/ipd/billing");
   return res.data;
 };
 
-export const getIPDBill = async (
-  billId: number
-) => {
-  const res = await API.get(
-    `/ipd-billing/${billId}`
-  );
-
+export const getIPDBill = async (billId: number) => {
+  const res = await API.get(`/ipd/billing/${billId}`);
   return res.data;
 };
-
-export const printIPDBill = (
-  billId: number
+export const updateIPDBill = async (billId: number, data: any) => {
+  const res = await API.put(`/ipd/billing/${billId}`, data);
+  return res.data;
+};
+// src/api/ipd-api.ts
+export const printIPDBill = async (
+  billId: number,
+  popup?: Window | null
 ) => {
-  const token =
-    localStorage.getItem(
-      "authToken"
-    );
+  const target = popup ?? window.open("", "_blank", "noopener,noreferrer");
 
-  window.open(
-    `${import.meta.env.VITE_APP_API_URL}/api/ipd-billing/${billId}/print?token=${token}`,
-    "_blank"
-  );
+  if (!target) {
+    alert("Popup blocked. Please allow pop-ups to print the bill.");
+    return;
+  }
+
+  try {
+    const response = await API.get(`/ipd/billing/${billId}/print`, {
+      responseType: "text",
+    });
+
+    target.document.open();
+    target.document.write(response.data);
+    target.document.close();
+  } catch (error) {
+    target.close();
+    alert("Failed to open IPD bill print.");
+  }
 };
 
 

@@ -24,13 +24,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useUIStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { useSearchStore } from "@/store/searchStore";
 import { useOpdStore, type OpdPatient } from "@/store/opdStore";
 import { cn } from "@/lib/utils";
+import { resolveHospitalAssetUrl } from "@/api/hospitalApi";
 
 interface Props {
   onMenu: () => void;
@@ -43,9 +44,10 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
-  const { user, logout } = useAuthStore();
+  const { user, hospital, logout } = useAuthStore();
   const { recent, addRecent, clear } = useSearchStore();
   const navigate = useNavigate();
+  const hospitalLogo = resolveHospitalAssetUrl(hospital?.logo);
 
   const [now, setNow] = useState(new Date());
   
@@ -130,6 +132,7 @@ const results = query
 
   return (
     <header className="sticky top-0 z-30 h-16 glass-strong border-b border-border">
+      <div className="h-full flex px-4 md:px-6  items-center justify-between">
       <div className="h-full px-4 md:px-6 flex items-center gap-3">
         <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenu}>
           <Menu className="h-5 w-5" />
@@ -150,7 +153,7 @@ const results = query
                 setOpen(true);
               }}
               onFocus={() => setOpen(true)}
-              placeholder="Search by UHID, name, or mobile…"
+              placeholder="Global Search by UHID, name, or mobile…"
               className="w-full h-10 pl-10 pr-20 rounded-xl bg-muted/60 border border-transparent focus:bg-card focus:border-ring outline-none text-sm transition"
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 text-[10px] text-muted-foreground bg-card px-1.5 py-0.5 rounded border border-border">
@@ -237,7 +240,8 @@ const results = query
             )}
           </AnimatePresence>
         </div>
-
+</div>
+ <div className="h-full px-4 md:px-6 flex items-center gap-3">
         <div className="hidden lg:flex flex-col text-right text-xs leading-tight">
           <span className="font-medium">{now.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" })}</span>
           <span className="text-muted-foreground">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -260,9 +264,9 @@ const results = query
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="icon" onClick={toggleTheme} className="relative">
+        {/* <Button variant="ghost" size="icon" onClick={toggleTheme} className="relative">
           {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-        </Button>
+        </Button> */}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -293,6 +297,7 @@ const results = query
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 hover:bg-muted rounded-xl p-1 pr-2 transition-colors">
               <Avatar className="h-8 w-8">
+                {hospitalLogo && <AvatarImage src={hospitalLogo} alt={hospital?.name || "Hospital logo"} />}
                 <AvatarFallback className="text-xs gradient-blue text-white">
                   {user?.name.split(" ").map((n) => n[0]).slice(0, 2).join("") ?? "DR"}
                 </AvatarFallback>
@@ -306,7 +311,7 @@ const results = query
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem><User className="h-4 w-4 mr-2" /> Profile</DropdownMenuItem>
+            <DropdownMenuItem onClick={()=> navigate({to:"/settings/profile"})}><User className="h-4 w-4 mr-2" /> Profile</DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate({ to: "/settings/users" })}>
               <Settings className="h-4 w-4 mr-2" /> Settings
             </DropdownMenuItem>
@@ -322,6 +327,7 @@ const results = query
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
       </div>
     </header>
   );

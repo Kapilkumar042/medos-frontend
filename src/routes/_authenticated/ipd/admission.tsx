@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { BedDouble, CalendarDays, Clock3, Save, Stethoscope, UserRoundPlus } from "lucide-react";
@@ -35,7 +35,7 @@ const admissionSchema = z.object({
     .min(10, "Mobile number should be at least 10 digits")
     .or(z.literal(""))
     .optional(),
-  address: z.string().min(2, "Address is required"),
+  address: z.string().optional(),
   city: z.string().optional(),
   emergencyContact: z.string().optional(),
   attendantName: z.string().optional(),
@@ -85,6 +85,7 @@ interface Admission {
 }
 
 function Page() {
+  const navigate = useNavigate();
   const {
     register,
     control,
@@ -201,6 +202,7 @@ useEffect(() => {
       diagnosis: values.diagnosis,
 
       // payment_mode: "Cash",
+      admission_date: `${values.admissionDate}T${values.admissionTime}:00`,
     };
 
     let response;
@@ -251,11 +253,14 @@ console.log("Admission Response", admission);
       response
     );
 
-    toast.success(
-      "Patient admitted successfully"
-    );
+    toast.success("Patient admitted successfully", {
+  duration: 500,
+});
 
     reset();
+    setTimeout(() => {
+  navigate({ to: "/ipd/patients" });
+}, 1000);
   } catch (error: any) {
     console.error(error);
 
@@ -278,13 +283,13 @@ console.log("Admission Response", admission);
         >
           <Section title="Patient Information" icon={<UserRoundPlus className="h-4 w-4" />}>
             <div className="grid md:grid-cols-4 gap-3">
-              <Field label="UHID">
+              {/* <Field label="UHID">
                 <Input placeholder="UHID" {...register("uhid")} />
               </Field>
 
               <Field label="OPD No">
                 <Input placeholder="OPD Number" {...register("opdNo")} />
-              </Field>
+              </Field> */}
 
               <Field label="Patient Name" error={errors.name?.message}>
                 <Input placeholder="Enter patient name" {...register("name")} />
@@ -319,7 +324,7 @@ console.log("Admission Response", admission);
                 />
               </Field>
 
-              <Field label="Age">
+              <Field label="Age (Y/M/D)">
                 <div className="grid grid-cols-3 gap-2">
                   <Input
                     type="number"
@@ -378,7 +383,7 @@ console.log("Admission Response", admission);
               </Field>
 
               <Field label="Address" className="md:col-span-2" error={errors.address?.message}>
-                <Textarea rows={2} placeholder="Address" {...register("address")} />
+                <Input placeholder="Address" {...register("address")} />
               </Field>
 
               <Field label="City">
@@ -484,13 +489,13 @@ console.log("Admission Response", admission);
                 />
               </Field>
 
-              <Field label="Room Number">
+              {/* <Field label="Room Number">
                 <Input placeholder="Room no." {...register("roomNumber")} />
               </Field>
 
               <Field label="Bed Number">
                 <Input placeholder="Bed no." {...register("bedNumber")} />
-              </Field>
+              </Field> */}
 
               <Field label="Referral">
                 <Input placeholder="Referring doctor / source" {...register("referral")} />
@@ -556,9 +561,9 @@ console.log("Admission Response", admission);
           </Section>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <Button type="button" variant="outline">
+            {/* <Button type="button" variant="outline">
               Save Draft
-            </Button>
+            </Button> */}
 
             <Button type="submit" className="bg-primary text-primary-foreground">
               <Save className="h-4 w-4 mr-1.5" />
@@ -606,7 +611,7 @@ function Field({
     <div className={className}>
       <Label className="text-sm">{label}</Label>
       <div className="mt-1">{children}</div>
-      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+      {error && <p className="text-xs text-muted-foreground mt-1">{error}</p>}
     </div>
   );
 }

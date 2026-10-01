@@ -30,7 +30,10 @@ import {
 import { MetricCard } from "@/components/shared/MetricCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import {
+  monthlyOPD,
+  revenueData,
   collectionData,
+  departmentPerf,
   sparkData,
   appointments,
   beds,
@@ -40,79 +43,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { inr, num } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { dashboardApi } from "@/api/dashboardApi";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import type { DateRange } from "react-day-picker";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute("/_authenticated/dashboardbbbb")({
   component: Dashboard,
 });
-
-type DashboardPeriod =
-  | "today"
-  | "yesterday"
-  | "this_week"
-  | "this_month"
-  | "this_year"
-  | "custom";
-
-function formatDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function getRange(period: DashboardPeriod): DateRange {
-  const today = new Date();
-  const from = new Date(today);
-  const to = new Date(today);
-
-  if (period === "yesterday") {
-    from.setDate(today.getDate() - 1);
-    to.setDate(today.getDate() - 1);
-  } else if (period === "this_week") {
-    const mondayOffset = today.getDay() === 0 ? 6 : today.getDay() - 1;
-    from.setDate(today.getDate() - mondayOffset);
-  } else if (period === "this_month") {
-    from.setDate(1);
-  } else if (period === "this_year") {
-    from.setMonth(0, 1);
-  }
-
-  return { from, to };
-}
-
-type DashboardData = {
-  patients_registered_in_period?: number;
-  total_visits?: number;
-  collection_in_period?: number;
-  outstanding_due_all_time?: number;
-  pharmacy_sales?: number;
-  lab_tests?: number;
-  admissions_in_period?: number;
-  total_collection_in_period?: number;
-  occupied_beds?: number;
-  available_beds?: number;
-  total_beds?: number;
-  revenue_data?: Array<{
-    month: string;
-    revenue: number;
-    expense: number;
-  }>;
-  monthly_volume?: Array<{
-    month: string;
-    opd: number;
-    ipd: number;
-  }>;
-  department_performance?: Array<{
-    dept: string;
-    patients: number;
-  }>;
-};
 
 const tooltipStyle = {
   contentStyle: {
@@ -127,260 +61,25 @@ function Dashboard() {
   const todayAppts = appointments.slice(0, 6);
   const occupiedBeds = beds.filter((b) => b.status === "Occupied").length;
   const availableBeds = beds.filter((b) => b.status === "Available").length;
-const [period, setPeriod] = useState<DashboardPeriod>("today");
-const [dateRange, setDateRange] = useState<DateRange>(() =>
-  getRange("today"),
-);
-  const [opdData, setOpdData] = useState<DashboardData | null>(null);
-const [ipdData, setIpdData] = useState<DashboardData | null>(null);
-const [dashboardLoading, setDashboardLoading] = useState(true);
-const [dashboardError, setDashboardError] = useState(false);
-
-useEffect(() => {
-  let active = true;
-
-  async function loadDashboard() {
-    setDashboardLoading(true);
-    setDashboardError(false);
-
-    const params =
-      period === "custom"
-        ? {
-            period,
-            start_date: dateRange.from
-              ? formatDate(dateRange.from)
-              : undefined,
-            end_date: dateRange.to
-              ? formatDate(dateRange.to)
-              : dateRange.from
-                ? formatDate(dateRange.from)
-                : undefined,
-          }
-        : { period };
-
-    try {
-      const [opd, ipd] = await Promise.all([
-        dashboardApi.getOpd(params),
-        dashboardApi.getIpd(params),
-      ]);
-
-      if (!active) return;
-
-      setOpdData(opd.data ?? opd);
-      setIpdData(ipd.data ?? ipd);
-    } catch (error) {
-      console.error("Failed to load dashboard", error);
-
-      if (active) {
-        setDashboardError(true);
-        setOpdData(null);
-        setIpdData(null);
-      }
-    } finally {
-      if (active) {
-        setDashboardLoading(false);
-      }
-    }
-  }
-
-  void loadDashboard();
-
-  return () => {
-    active = false;
-  };
-}, [period, dateRange]);
-const selectedPeriodLabel = period.replaceAll("_", " ");
-
-const collectionChartData = [
-  { name: "OPD", amount: Number(opdData?.collection_in_period ?? 0) },
-  { name: "IPD", amount: Number(ipdData?.collection_in_period ?? 0) },
-];
-
-const volumeChartData = [
-  {
-    period: selectedPeriodLabel,
-    opd: Number(opdData?.patients_registered_in_period ?? 0),
-    ipd: Number(ipdData?.admissions_in_period ?? 0),
-  },
-];
-
-const paymentTotals = new Map<string, number>();
-
-for (const source of [
-  opdData?.collection_by_payment_mode,
-  ipdData?.collection_by_payment_mode,
-]) {
-  for (const [mode, amount] of Object.entries(source ?? {})) {
-    const normalizedMode = mode.trim().toUpperCase();
-    paymentTotals.set(
-      normalizedMode,
-      (paymentTotals.get(normalizedMode) ?? 0) + Number(amount || 0),
-    );
-  }
-}
-
-const paymentTotal = [...paymentTotals.values()].reduce(
-  (sum, amount) => sum + amount,
-  0,
-);
-
-const paymentMixData = [...paymentTotals.entries()].map(([name, amount], index) => ({
-  name,
-  amount,
-  value: paymentTotal > 0 ? (amount / paymentTotal) * 100 : 0,
-  fill: `var(--chart-${(index % 5) + 1})`,
-}));
-
-const duesChartData = [
-  { name: "OPD outstanding", amount: Number(opdData?.outstanding_due_all_time ?? 0) },
-  { name: "IPD outstanding", amount: Number(ipdData?.outstanding_due_all_time ?? 0) },
-];
-
-const revenueChartData = opdData?.revenue_data ?? [];
-const monthlyVolumeData = opdData?.monthly_volume ?? [];
-const departmentData = opdData?.department_performance ?? [];
 
   return (
     <>
-      <PageHeader
-  title="Dashboard"
-  description="Real-time overview of your hospital operations."
->
-  <div className="flex flex-wrap items-center gap-2">
-    <select
-      value={period}
-      onChange={(event) => {
-        const selectedPeriod = event.target.value as DashboardPeriod;
-        setPeriod(selectedPeriod);
-
-        if (selectedPeriod !== "custom") {
-          setDateRange(getRange(selectedPeriod));
-        }
-      }}
-      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-    >
-      <option value="today">Today</option>
-      <option value="yesterday">Yesterday</option>
-      <option value="this_week">This Week</option>
-      <option value="this_month">This Month</option>
-      <option value="this_year">This Year</option>
-      <option value="custom">Custom Range</option>
-    </select>
-
-    {period === "custom" && (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="h-9">
-            <CalendarDays className="mr-2 h-4 w-4" />
-            {dateRange.from
-              ? `${formatDate(dateRange.from)} - ${formatDate(
-                  dateRange.to ?? dateRange.from,
-                )}`
-              : "Choose dates"}
-          </Button>
-        </PopoverTrigger>
-
-        <PopoverContent className="w-auto p-0" align="end">
-          <Calendar
-            mode="range"
-            numberOfMonths={2}
-            selected={dateRange}
-            onSelect={(range) => {
-              if (range?.from) {
-                setDateRange(range);
-              }
-            }}
-          />
-        </PopoverContent>
-      </Popover>
-    )}
-  </div>
-
-  <Badge variant="outline" className="bg-success/10 text-success border-success/30 gap-1">
-    <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-    Live
-  </Badge>
-
-  <Button variant="outline" size="sm">
-    Export Report
-  </Button>
-</PageHeader>
+      <PageHeader title="Dashboard" description="Real-time overview of your hospital operations.">
+        <Badge variant="outline" className="bg-success/10 text-success border-success/30 gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live
+        </Badge>
+        <Button variant="outline" size="sm">Export Report</Button>
+      </PageHeader>
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-        <MetricCard
-  label="OPD Patients"
-  value={dashboardLoading ? "..." : num(opdData?.patients_registered_in_period ?? 0)}
-  icon={Users}
-  gradient="teal"
-  index={0}
-/>
-
-<MetricCard
-  label="IPD Patients"
-  value={dashboardLoading ? "..." : num(ipdData?.admissions_in_period ?? 0)}
-  icon={BedDouble}
-  gradient="blue"
-  index={1}
-/>
-
-<MetricCard
-  label="OPD Revenue Today"
-  value={dashboardLoading ? "..." : inr(opdData?.collection_in_period ?? 0)}
-  icon={Wallet}
-  gradient="success"
-  index={3}
-/>
-<MetricCard
-  label="IPD Revenue Today"
-  value={dashboardLoading ? "..." : inr(ipdData?.total_collection_in_period ?? 0)}
-  icon={Wallet}
-  gradient="success"
-  index={3}
-/>
-
-<MetricCard
-  label="OPD Pending Bills"
-  value={dashboardLoading ? "..." : inr(opdData?.outstanding_due_all_time ?? 0)}
-  icon={AlertCircle}
-  gradient="warning"
-  index={4}
-/>
-
-<MetricCard
-  label="IPD Outstanding"
-  value={
-    dashboardLoading
-      ? "..."
-      : inr(Number(ipdData?.outstanding_due_all_time ?? 0))
-  }
-  icon={AlertCircle}
-  gradient="warning"
-  index={5}
-/>
-
-<MetricCard
-  label="Available Beds"
-  value={`${ipdData?.available_beds ?? 0}/${ipdData?.total_beds ?? 0}`}
-  icon={BedDouble}
-  gradient="teal"
-  index={5}
-/>
-
-<MetricCard
-  label="Pharmacy Sales"
-  value={dashboardLoading ? "..." : inr(opdData?.pharmacy_sales ?? 0)}
-  icon={Pill}
-  gradient="blue"
-  index={6}
-/>
-
-<MetricCard
-  label="Lab Tests Today"
-  value={dashboardLoading ? "..." : num(opdData?.lab_tests ?? 0)}
-  icon={TestTube}
-  gradient="success"
-  index={7}
-/>
+        <MetricCard label="OPD Patients" value={num(1284)} delta={12} icon={Users} gradient="teal" spark={sparkData} index={0} />
+        <MetricCard label="IPD Patients" value={num(312)} delta={6} icon={BedDouble} gradient="blue" spark={sparkData} index={1} />
+        <MetricCard label="Today Appointments" value={num(48)} delta={-3} icon={CalendarDays} gradient="primary" spark={sparkData} index={2} />
+        <MetricCard label="Revenue Today" value={inr(284600)} delta={18} icon={Wallet} gradient="success" spark={sparkData} index={3} />
+        <MetricCard label="Pending Bills" value={inr(112400)} delta={-8} icon={AlertCircle} gradient="warning" spark={sparkData} index={4} />
+        <MetricCard label="Available Beds" value={`${availableBeds}/${beds.length}`} delta={4} icon={BedDouble} gradient="teal" spark={sparkData} index={5} />
+        <MetricCard label="Pharmacy Sales" value={inr(76200)} delta={9} icon={Pill} gradient="blue" spark={sparkData} index={6} />
+        <MetricCard label="Lab Tests Today" value={num(94)} delta={15} icon={TestTube} gradient="success" spark={sparkData} index={7} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
@@ -398,7 +97,7 @@ const departmentData = opdData?.department_performance ?? [];
             </Badge>
           </div>
           <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={revenueChartData}>
+            <AreaChart data={revenueData}>
               <defs>
                 <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
@@ -427,8 +126,8 @@ const departmentData = opdData?.department_performance ?? [];
           <p className="text-xs text-muted-foreground mb-4">Cash vs Online</p>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={paymentMixData} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                {paymentMixData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              <Pie data={collectionData} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                {collectionData.map((d, i) => <Cell key={i} fill={d.fill} />)}
               </Pie>
               <Tooltip {...tooltipStyle} />
             </PieChart>
@@ -455,7 +154,7 @@ const departmentData = opdData?.department_performance ?? [];
           <h3 className="font-semibold">OPD vs IPD</h3>
           <p className="text-xs text-muted-foreground mb-4">Monthly volume</p>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={volumeChartData}>
+            <LineChart data={monthlyOPD}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} />
               <YAxis stroke="var(--muted-foreground)" fontSize={11} />
@@ -466,14 +165,14 @@ const departmentData = opdData?.department_performance ?? [];
           </ResponsiveContainer>
         </motion.div>
 
-        {/* <motion.div
+        <motion.div
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
           className="rounded-2xl bg-card border border-border shadow-soft p-5"
         >
           <h3 className="font-semibold">Department Performance</h3>
           <p className="text-xs text-muted-foreground mb-4">Patients this month</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={departmentData}>
+            <BarChart data={departmentPerf}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="dept" stroke="var(--muted-foreground)" fontSize={10} interval={0} angle={-25} textAnchor="end" height={60} />
               <YAxis stroke="var(--muted-foreground)" fontSize={11} />
@@ -518,10 +217,10 @@ const departmentData = opdData?.department_performance ?? [];
               );
             })}
           </div>
-        </motion.div> */}
+        </motion.div>
       </div>
 
-      {/* <motion.div
+      <motion.div
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
         className="rounded-2xl bg-card border border-border shadow-soft p-5 mt-4"
       >
@@ -573,7 +272,7 @@ const departmentData = opdData?.department_performance ?? [];
             </tbody>
           </table>
         </div>
-      </motion.div> */}
+      </motion.div>
     </>
   );
 }

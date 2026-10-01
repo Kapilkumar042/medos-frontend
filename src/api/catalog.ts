@@ -15,6 +15,27 @@ API.interceptors.request.use((config) => {
 });
 
 const normalizePayload = (kind: CatalogKind, payload: any) => {
+    if (kind === "medicine") {
+    const {
+      packSize,
+      unitPrice,
+      dosageType,
+      purchasePrice,
+      expiry,
+      ...rest
+    } = payload;
+    const expiryValue = expiry ?? payload.expiry_date ?? payload.expire ?? "";
+    return {
+    ...rest,
+    status: payload.status || "Active",
+    pack_size: packSize ?? payload.pack_size ?? "",
+    unit_price: unitPrice ?? payload.unit_price,
+    dosage_type: dosageType ?? payload.dosage_type,
+    purchase_price: purchasePrice ?? payload.purchase_price,
+    expire: expiryValue,
+    expiry_date: expiryValue,
+  };
+  }
   if (kind === "lab") {
     const { name, sampleType, reportTime, ...rest } = payload;
     return {
@@ -28,6 +49,17 @@ const normalizePayload = (kind: CatalogKind, payload: any) => {
 };
 
 const normalizeResponse = (kind: CatalogKind, item: any) => {
+  if (kind === "medicine") {
+    return {
+      ...item,
+      packSize: item.pack_size ?? item.packSize,
+      unitPrice: item.unit_price ?? item.unitPrice,
+      manufacturer: item.manufacturer ?? "",
+      strength: item.strength ?? "",
+      dosageType: item.dosage_type ?? item.dosageType,
+      expiry: item.expiry_date ?? item.expiry,
+    };
+  }
   if (kind === "lab") {
     return {
       ...item,
@@ -61,6 +93,22 @@ export const catalogApi = {
     const formData = new FormData();
     formData.append("file", file);
     return API.post(`/${kind}/import`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }).then((r) => r.data);
+  },
+
+
+
+    exportHospitalCatalog: (kind: CatalogKind) =>
+    API.get(`/shared-catalog/${kind}/export`, {
+      responseType: "blob",
+    }).then((r) => r.data),
+
+  importHospitalCatalog: (kind: CatalogKind, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return API.post(`/shared-catalog/${kind}/import`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }).then((r) => r.data);
   },
