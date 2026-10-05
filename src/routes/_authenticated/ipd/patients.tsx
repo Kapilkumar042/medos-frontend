@@ -217,6 +217,31 @@ function getDateRange(preset: DatePreset): DateRange {
   return { from, to };
 }
 
+  function formatDisplayDate(date: Date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+function getDateFilterLabel(preset: DatePreset, range: DateRange) {
+  const presetLabels: Record<Exclude<DatePreset, "custom">, string> = {
+    today: "Today",
+    yesterday: "Yesterday",
+    week: "This Week",
+    month: "This Month",
+    year: "This Year",
+  };
+
+  if (preset !== "custom") return presetLabels[preset];
+
+  if (!range.from) return "Custom Date Range";
+
+  const from = formatDisplayDate(range.from);
+  const to = range.to ? formatDisplayDate(range.to) : "";
+
+  return to && to !== from ? `${from} → ${to}` : from;
+}
 export function IpdPatientsPage() {
   const navigate = useNavigate();
   const loadCatalog = useCatalogStore((state) => state.loadCatalog);
@@ -355,11 +380,13 @@ setSelectedServices(normalizedServices);
 setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
     setAdvanceAmount(0);
     setAdvancePaymentMode("CASH");
-    setDiscountPercent(Math.min(15, Math.max(0, patient.advancePayment > 0 ? 10 : 0)));
+    setDiscountPercent(0);
     setPaidAmount(0);
     setPaymentMode("CASH");
     setBillDate(patient.billDate || new Date().toISOString().slice(0, 10));
   };
+
+
 
   const openEditDialog = async (patient: AdmissionPatient) => {
     setEditPatient(patient);
@@ -1035,13 +1062,13 @@ const handlePayDue = async () => {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button type="button" variant="outline" className="min-w-[330px] justify-between">
-                    <span>
-                      {dateRange.from
-                        ? `${formatDate(dateRange.from)}  →  ${formatDate(
-                            dateRange.to ?? dateRange.from,
-                          )}`
-                        : "Select date range"}
-                    </span>
+                     <span>
+  {dateRange.from
+    ? `${formatDisplayDate(dateRange.from)} → ${formatDisplayDate(
+        dateRange.to ?? dateRange.from,
+      )}`
+    : "Select date range"}
+</span>
                     <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
@@ -1065,7 +1092,7 @@ const handlePayDue = async () => {
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="outline">
                     <Filter className="mr-2 h-4 w-4" />
-                    Filters
+                   <span>{getDateFilterLabel(datePreset, dateRange)}</span>
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>

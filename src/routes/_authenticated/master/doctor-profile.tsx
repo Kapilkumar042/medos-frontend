@@ -35,6 +35,12 @@ export const Route = createFileRoute("/_authenticated/master/doctor-profile")({
   component: Page,
 });
 
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const nullableNonNegativeInt = z.preprocess(
+  (value) => (value === "" || value == null ? null : Number(value)),
+  z.number().int().min(0).nullable(),
+);
+
 const schema = z.object({
   first_name: z.string().min(1, "Required"),
   last_name: z.string().optional(),
@@ -52,9 +58,12 @@ const schema = z.object({
   on_call_fee: z.coerce.number().optional(),
   emergency_fee: z.coerce.number().optional().optional(),
   follow_up_fee: z.coerce.number().optional().optional(),
-  available_days: z.string().optional(),
+  available_days: z.array(z.string()).optional(),
   start_time: z.string().optional(),
   end_time: z.string().optional(),
+  follow_up_free: z.boolean().nullable().optional(),
+follow_up_period_days: nullableNonNegativeInt,
+free_follow_up_count: nullableNonNegativeInt,
   status: z.enum(["Active", "Inactive"]).optional(),
 });
 
@@ -77,10 +86,13 @@ const defaults: FormValues = {
   on_call_fee: 0,
   emergency_fee: 0,
   follow_up_fee: 0,
-  available_days: "Mon–Sat",
+  available_days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
   start_time: "10:00",
   end_time: "17:00",
   status: "Active",
+  follow_up_free: null,
+  follow_up_period_days: null,
+  free_follow_up_count: null,
 };
 
 const EXCEL_COLUMNS = [
@@ -104,7 +116,11 @@ const EXCEL_COLUMNS = [
   "start_time",
   "end_time",
   "status",
+  "follow_up_free",
+  "follow_up_period_days",
+  "free_follow_up_count",
 ];
+const dayOptions = WEEKDAYS.map((day) => ({ value: day, label: day }));
 const genderOptions = [
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
@@ -137,7 +153,7 @@ function Page() {
         600,
         1500,
         2000,
-        "Mon–Sat",
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
         "10:00",
         "17:00",
         "Active",
@@ -168,10 +184,12 @@ function Page() {
     }
   };
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: defaults,
-  });
+type FormOutput = z.output<typeof schema>;
+
+const form = useForm<FormValues, unknown, FormOutput>({
+  resolver: zodResolver(schema),
+  defaultValues: defaults,
+});
 
   const openAdd = () => {
     setEditingId(null);
@@ -197,9 +215,12 @@ function Page() {
       experience_years: d.experience_years || 0,
       start_time: d.start_time ?? "",
       end_time: d.end_time ?? "",
-      available_days: d.available_days || "",
+      available_days: d.available_days || [],
       department: d.department || "",
       designation: d.designation || "",
+      follow_up_free: d.follow_up_free ?? null,
+      follow_up_period_days: d.follow_up_period_days ?? null,
+      free_follow_up_count: d.free_follow_up_count ?? null,
     });
     setOpen(true);
   };
@@ -210,6 +231,10 @@ function Page() {
   const onSubmit = (v: FormValues) => {
     const payload = {
       ...v,
+      follow_up_free: v.follow_up_free ?? null,
+      follow_up_period_days: v.follow_up_period_days ?? null,
+      free_follow_up_count: v.free_follow_up_count ?? null,
+      available_days: v.available_days ?? [],
       start_time: v.start_time?.trim() || null,
       end_time: v.end_time?.trim() || null,
     };
@@ -219,7 +244,7 @@ function Page() {
         duration: 500,
       });
     } else {
-      addDoctor(v);
+      addDoctor(payload);
       toast.success("Doctor added", {
         duration: 500,
       });
@@ -450,12 +475,99 @@ function Page() {
               <Field label="Follow-up Fee (₹)">
                 <Input type="number" min={0} {...form.register("follow_up_fee")} />
               </Field>
+              <Field label="Follow-up is free">
+  <Select
+    value={
+      form.watch("follow_up_free") == null
+        ? "unset"
+        : String(form.watch("follow_up_free"))
+    }
+    onValueChange={(value) =>
+      form.setValue(
+        "follow_up_free",
+        value === "unset" ? null : value === "true",
+        { shouldDirty: true },
+      )
+    }
+  >
+    <SelectTrigger>
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="unset">Not set</SelectItem>
+      <SelectItem value="true">Yes</SelectItem>
+      <SelectItem value="false">No</SelectItem>
+    </SelectContent>
+  </Select>
+</Field>
+
+<Field label="Follow-up period (days)">
+  <Input
+    type="number"
+    min={0}
+    value={form.watch("follow_up_period_days") ?? ""}
+    onChange={(event) =>
+      form.setValue(
+        "follow_up_period_days",
+        event.target.value === "" ? null : Number(event.target.value),
+        { shouldDirty: true },
+      )
+    }
+  />
+</Field>
+
+<Field label="Free follow-up count">
+  <Input
+    type="number"
+    min={0}
+    value={form.watch("free_follow_up_count") ?? ""}
+    onChange={(event) =>
+      form.setValue(
+        "free_follow_up_count",
+        event.target.value === "" ? null : Number(event.target.value),
+        { shouldDirty: true },
+      )
+    }
+  />
+</Field>
             </Section>
 
             <Section title="Availability">
               <Field label="Available Days">
-                <Input placeholder="Mon–Sat" {...form.register("available_days")} />
-              </Field>
+  <CreatableSelect
+    isMulti
+    isClearable
+    closeMenuOnSelect={false}
+    options={[
+      { value: "ALL", label: "All Days" },
+      ...dayOptions,
+    ]}
+    value={
+      form.watch("available_days")?.length === 7
+        ? [{ value: "ALL", label: "All Days" }]
+        : (form.watch("available_days") || []).map((day) => ({
+            value: day,
+            label: day,
+          }))
+    }
+    onChange={(selected) => {
+      const values = selected.map((item) => item.value);
+
+      if (values.includes("ALL")) {
+        form.setValue(
+          "available_days",
+          dayOptions.map((day) => day.value)
+        );
+      } else {
+        form.setValue(
+          "available_days",
+          dayOptions.filter((day) => values.includes(day.value)).map((day) => day.value)
+        );
+      }
+    }}
+    placeholder="Select available days..."
+  />
+</Field>
               <Field label="From">
                 <Input type="time" {...form.register("start_time")} />
               </Field>

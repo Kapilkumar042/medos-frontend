@@ -31,8 +31,10 @@ export interface Doctor {
   on_call_fee: number;
   emergency_fee?: number;
   follow_up_fee?: number;
-
-  available_days?: string;
+  follow_up_free?: boolean | null;
+  follow_up_period_days?: number | null;
+  free_follow_up_count?: number | null;
+  available_days?: string[];
   start_time?: string;
   end_time?: string;
 

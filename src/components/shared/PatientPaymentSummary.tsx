@@ -62,8 +62,8 @@ export function PatientPaymentSummary({
   summary: PatientPaymentSummaryData | null;
 }) {
   return (
-    <section className="border-t border-border p-4">
-      <h3 className="mb-3 text-sm font-semibold">{title}</h3>
+    <section className="border-t border-border px-4 py-2">
+      <h3 className="mb-1 text-sm font-semibold">{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted-foreground">

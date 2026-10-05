@@ -18,6 +18,40 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export type OpdPatientSearchResult = {
+  id: string;
+  name: string;
+  uhid?: string;
+  gender?: string;
+  mobile?: string;
+  bloodGroup?: string;
+};
+
+export type AdmitFromOpdPayload = {
+  patient_id: number;
+  doctor_id?: number | null;
+  ward?: string | null;
+  room?: string | null;
+  bed_no?: string | null;
+  diagnosis?: string | null;
+  admission_date?: string | null;
+  department?: string | null;
+  attendant_name?: string | null;
+  emergency_contact?: string | null;
+  expected_discharge_date?: string | null;
+  notes?: string | null;
+  package_name?: string | null;
+  reason?: string | null;
+  referral?: string | null;
+  room_category?: string | null;
+  insurance_policy?: string | null;
+  insurer?: string | null;
+  age_days?: number;
+  age_months?: number;
+  advance_amount?: number;
+  payment_mode?: string | null;
+};
+
 export const opdApi = {
   // Patients
   // listPatients: () => api.get("/opd/patients").then((r) => r.data),
@@ -57,11 +91,38 @@ exportPatients: async (params: {
 
     return response.data;
   },
+
+  searchPatients: (query: string): Promise<OpdPatientSearchResult[]> =>
+  api
+    .get("/opd/patients/search", { params: { q: query } })
+    .then((response) => {
+      const payload = response.data?.data ?? response.data;
+      const patients = Array.isArray(payload)
+        ? payload
+        : payload?.results ?? payload?.items ?? [];
+
+      return patients.map((patient: any) => ({
+        id: String(patient.id),
+        name: patient.name ?? "",
+        uhid: patient.uhid ?? "",
+        gender: patient.gender ?? "",
+        mobile: patient.mobile ?? "",
+        bloodGroup: patient.blood_group ?? patient.bloodGroup ?? "-",
+      }));
+    }),
+
+      admitFromOpd: (payload: AdmitFromOpdPayload) =>
+    api.post("/ipd/admit-from-opd", payload).then((response) => response.data), 
+      
   createPatient: (data: any) => {
     const payload = {
       name: data.name,
       gender: data.gender,
       dob: data.dob,
+      age: data.age,
+      age_months: data.age_months,
+      age_days: data.age_days,
+      follow_up_date: data.follow_up_date ?? data.visitDate ?? null,
       mobile: data.mobile,
       address: data.address,
       blood_group: data.bloodGroup, // camelCase → snake_case
@@ -88,6 +149,7 @@ exportPatients: async (params: {
       religion: data.religion,
       education: data.education,
       consultant: data.consultant,
+      status: data.status,
     };
     return api.post("/opd/patients", payload).then((r) => r.data);
   },

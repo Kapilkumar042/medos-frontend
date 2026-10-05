@@ -14,6 +14,7 @@ import {
   Plus,
   X,
   Clock,
+  IndianRupee
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,15 +33,40 @@ import { useSearchStore } from "@/store/searchStore";
 import { useOpdStore, type OpdPatient } from "@/store/opdStore";
 import { cn } from "@/lib/utils";
 import { resolveHospitalAssetUrl } from "@/api/hospitalApi";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import api from "@/api/api";
+import { inr } from "@/lib/format";
+import { opdApi, type OpdPatientSearchResult } from "@/lib/opd-api";
 interface Props {
   onMenu: () => void;
   onPatientSelect: (p: OpdPatient) => void;
   onCommandOpen: () => void;
 }
+type CatalogSearchItem = {
+  id?: string | number;
+  name?: string;
+  test_name?: string;
+  service_name?: string;
+  medicine_name?: string;
+  code?: string;
+  category?: string;
+  type?: string;
+  price?: number | string;
+  unit_price?: number | string;
+  mrp?: number | string;
+  unit?: string;
+  status?: string;
+};
 
 export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
-  const { patients, loadPatients } = useOpdStore();
+const [results, setResults] = useState<OpdPatientSearchResult[]>([]);
+const [searchError, setSearchError] = useState("");
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
@@ -48,6 +74,12 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
   const { recent, addRecent, clear } = useSearchStore();
   const navigate = useNavigate();
   const hospitalLogo = resolveHospitalAssetUrl(hospital?.logo);
+  const [catalogQuery, setCatalogQuery] = useState("");
+const [catalogResults, setCatalogResults] = useState<CatalogSearchItem[]>([]);
+const [catalogOpen, setCatalogOpen] = useState(false);
+const [catalogLoading, setCatalogLoading] = useState(false);
+const [catalogError, setCatalogError] = useState("");
+// const catalogRef = useRef<HTMLDivElement>(null);
 
   const [now, setNow] = useState(new Date());
   
@@ -64,13 +96,39 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setLoading(true);
-    const id = setTimeout(() => {
-      setDebounced(q);
-      setLoading(false);
-    }, 220);
-    return () => clearTimeout(id);
-  }, [q]);
+  const term = q.trim();
+
+  if (!term) {
+    setResults([]);
+    setLoading(false);
+    setSearchError("");
+    return;
+  }
+
+  let active = true;
+  setLoading(true);
+  setSearchError("");
+
+  const timeoutId = window.setTimeout(async () => {
+    try {
+      const patients = await opdApi.searchPatients(term);
+      if (active) setResults(patients);
+    } catch (error) {
+      console.error("Patient search failed", error);
+      if (active) {
+        setResults([]);
+        setSearchError("Patient search failed");
+      }
+    } finally {
+      if (active) setLoading(false);
+    }
+  }, 250);
+
+  return () => {
+    active = false;
+    window.clearTimeout(timeoutId);
+  };
+}, [q]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -95,20 +153,16 @@ export function TopNavbar({ onMenu, onPatientSelect, onCommandOpen }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onCommandOpen]);
 
-useEffect(() => {
-  loadPatients().catch(console.error);
-}, [loadPatients]);
-
 const query = debounced.trim().toLowerCase();
 
-const results = query
-  ? patients.filter(
-      (patient) =>
-        patient.name?.toLowerCase().includes(query) ||
-        patient.uhid?.toLowerCase().includes(query) ||
-        patient.mobile?.includes(query),
-    )
-  : [];
+// const results = query
+//   ? patients.filter(
+//       (patient) =>
+//         patient.name?.toLowerCase().includes(query) ||
+//         patient.uhid?.toLowerCase().includes(query) ||
+//         patient.mobile?.includes(query),
+//     )
+//   : [];
 
   // const handleSelect = (p: Patient) => {
   //   addRecent(p.name);
@@ -116,7 +170,54 @@ const results = query
   //   setQ("");
   //   onPatientSelect(p);
   // };
-  const handleSelect = (patient: OpdPatient) => {
+
+  useEffect(() => {
+  const term = catalogQuery.trim();
+
+  if (!term) {
+    setCatalogResults([]);
+    setCatalogLoading(false);
+    setCatalogError("");
+    return;
+  }
+
+  let active = true;
+  setCatalogLoading(true);
+  setCatalogError("");
+
+  const timeoutId = window.setTimeout(async () => {
+    try {
+      const response = await api.get("/catalog/search", {
+        params: { q: term },
+      });
+
+      const payload = response.data?.data ?? response.data;
+      const results = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.results)
+            ? payload.results
+            : [];
+
+      if (active) setCatalogResults(results);
+    } catch (error) {
+      console.error("Catalog search failed", error);
+      if (active) {
+        setCatalogResults([]);
+        setCatalogError("Catalog search failed");
+      }
+    } finally {
+      if (active) setCatalogLoading(false);
+    }
+  }, 250);
+
+  return () => {
+    active = false;
+    window.clearTimeout(timeoutId);
+  };
+}, [catalogQuery]);
+  const handleSelect = (patient: OpdPatientSearchResult) => {
   addRecent(patient.name);
   setOpen(false);
   setQ("");
@@ -222,7 +323,7 @@ const results = query
                         <li key={r}>
                           <button
                             onClick={() => setQ(r)}
-                            className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-muted text-sm flex items-center gap-2"
+                            className="w-full text-left px-2 py-1.5 rounded-lg  hover:bg-muted text-sm flex items-center gap-2"
                           >
                             <Search className="h-3.5 w-3.5 text-muted-foreground" /> {r}
                           </button>
@@ -240,6 +341,86 @@ const results = query
             )}
           </AnimatePresence>
         </div>
+        <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>
+  <DialogTrigger className="bg-muted" asChild>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Search catalog"
+      title="Search services, medicines, and tests"
+    >
+      <Search className="h-5 w-5 " />
+    </Button>
+  </DialogTrigger>
+
+  <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-xl">
+    <DialogHeader>
+      <DialogTitle>Search Catalog</DialogTitle>
+    </DialogHeader>
+
+    <input
+      autoFocus
+      value={catalogQuery}
+      onChange={(event) => setCatalogQuery(event.target.value)}
+      placeholder="Search services, medicines, tests..."
+      aria-label="Search catalog"
+      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    />
+
+    <div className="max-h-[55vh] min-h-24 overflow-y-auto">
+      {!catalogQuery.trim() ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Enter a name or code to search the catalog.
+        </p>
+      ) : catalogLoading ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Searching catalog...
+        </p>
+      ) : catalogError ? (
+        <p className="py-6 text-center text-sm text-destructive">{catalogError}</p>
+      ) : catalogResults.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No catalog items found.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {catalogResults.map((item, index) => {
+            const name =
+              item.name ??
+              item.test_name ??
+              item.service_name ??
+              item.medicine_name ??
+              "Catalog item";
+            const price = item.price ?? item.unit_price ?? item.mrp;
+
+            return (
+              <li
+                key={item.id ?? item.code ?? `${name}-${index}`}
+                className="flex items-start justify-between gap-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[item.category ?? item.type, item.code, item.unit, item.status]
+                      .filter(Boolean)
+                      .join(" · ") || "Catalog item"}
+                  </p>
+                </div>
+
+                {price != null && (
+                  <span className="shrink-0 text-sm font-medium">
+                    {inr(Number(price) || 0)}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  </DialogContent>
+</Dialog>
 </div>
  <div className="h-full px-4 md:px-6 flex items-center gap-3">
         <div className="hidden lg:flex flex-col text-right text-xs leading-tight">

@@ -12,6 +12,9 @@ export interface Doctor {
   qualification: string;
   experience_years: number;
   normal_fee: number;
+  follow_up_free?: boolean | null;
+  follow_up_period_days?: number | null;
+  free_follow_up_count?: number | null;
   registration_no: string;
   room_no: string;
   status: boolean;

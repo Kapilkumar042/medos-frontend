@@ -43,6 +43,7 @@ export const maritalStatusOptions = [
 ];
 
 export const bloodGroupOptions = [
+  { value: "-", label: "-" },
   { value: "A+", label: "A+" },
   { value: "A-", label: "A-" },
   { value: "B+", label: "B+" },

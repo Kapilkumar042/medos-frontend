@@ -75,6 +75,7 @@ interface Bill {
   due_amount?: number;
   pay_mode?: string;
   status?: string;
+  remark?:string;
 }
 
 type BillCategory =
@@ -141,6 +142,34 @@ function getDateRange(preset: DatePreset): DateRange {
 
   return { from: start, to: end };
 }
+function formatDisplayDate(date: Date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function getDateFilterLabel(preset: DatePreset, range: DateRange) {
+  if (preset === "custom") {
+    if (!range.from) return "Custom Date Range";
+
+    const from = formatDisplayDate(range.from);
+    const to = range.to ? formatDisplayDate(range.to) : "";
+
+    return to && to !== from ? `${from} to ${to}` : from;
+  }
+
+  const labels: Record<Exclude<DatePreset, "custom">, string> = {
+    today: "Today",
+    yesterday: "Yesterday",
+    week: "This Week",
+    month: "This Month",
+    year: "This Year",
+  };
+
+  return labels[preset];
+}
 function Page() {
   const hospitalName = useAuthStore((state) => state.hospital?.name ?? "Hospital");
   const [datePreset, setDatePreset] = useState<DatePreset>("today");
@@ -179,7 +208,7 @@ function Page() {
   const medicineItems = useCatalogStore((state) => state.items.medicine);
   const [paymentSummary, setPaymentSummary] =
   useState<PatientPaymentSummaryData | null>(null);
-
+const [transferringPatientId, setTransferringPatientId] = useState<string | null>(null);
   useEffect(() => {
     Promise.all([
       loadCatalog("lab"),
@@ -402,12 +431,48 @@ ${hospitalName}`;
     return doc ? `${doc.specialization} • Room ${doc.room_no}` : "—";
   };
 
-  const onTransferIPD = (p: OpdPatient) => {
-    updatePatient(p.id, { status: "Transferred to IPD" });
-    toast.success(`${p.name} transferred to IPD`, {
-      duration: 500,
-    });
-    navigate({ to: "/ipd/admission" });
+    
+
+  const onTransferIPD = async (patient: OpdPatient) => {
+    setTransferringPatientId(String(patient.id));
+
+    try {
+      const visit = getLatestVisit(patient.id);
+      const doctorId = visit?.doctor_id ?? Number(patient.doctorId);
+
+      const patientWithDateTime = patient as OpdPatient & {
+  date_time?: string;
+  dateTime?: string;
+};
+
+const registrationDateTime =
+  patientWithDateTime.date_time ??
+  patientWithDateTime.dateTime;
+
+const admission = await opdApi.admitFromOpd({
+  patient_id: Number(patient.id),
+  doctor_id:
+    Number.isInteger(doctorId) && doctorId > 0
+      ? doctorId
+      : null,
+  department: visit?.department ?? patient.department ?? null,
+  admission_date: registrationDateTime
+    ? registrationDateTime.length === 16
+      ? `${registrationDateTime}:00`
+      : registrationDateTime
+    : undefined,
+});
+
+      toast.success(
+        `Admission created${admission?.admission_no ? `: ${admission.admission_no}` : ""}`,
+      );
+      navigate({ to: "/ipd/admission" });
+    } catch (error) {
+      console.error("OPD to IPD admission failed:", error);
+      toast.error("Failed to transfer patient to IPD");
+    } finally {
+      setTransferringPatientId(null);
+    }
   };
 
   const onPrintBill = async (patient: OpdPatient) => {
@@ -644,12 +709,12 @@ ${hospitalName}`;
                 <PopoverTrigger asChild>
                   <Button type="button" variant="outline" className="min-w-[330px] justify-between">
                     <span>
-                      {dateRange.from
-                        ? `${formatDate(dateRange.from)}  →  ${formatDate(
-                            dateRange.to ?? dateRange.from,
-                          )}`
-                        : "Select date range"}
-                    </span>
+  {dateRange.from
+    ? `${formatDisplayDate(dateRange.from)} → ${formatDisplayDate(
+        dateRange.to ?? dateRange.from,
+      )}`
+    : "Select date range"}
+</span>
                     <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
@@ -673,7 +738,7 @@ ${hospitalName}`;
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="outline">
                     <Filter className="mr-2 h-4 w-4" />
-                    Filters
+                     <span>{getDateFilterLabel(datePreset, dateRange)}</span>
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -724,9 +789,9 @@ ${hospitalName}`;
                 <th className="text-left px-4 py-2 font-medium">Patient</th>
                 <th className="text-left px-4 py-2 font-medium">Mobile</th>
                 <th className="text-left px-4 py-2 font-medium">Doctor / Dept</th>
-                <th className="text-left px-4 py-2 font-medium">Visit Date</th>
-                <th className="text-left px-4 py-2 font-medium">Symptoms</th>
+                <th className="text-left px-4 py-2 font-medium">FollowUp Date</th>
                 <th className="text-left px-4 py-2 font-medium">Net</th>
+                <th className="text-left px-4 py-2 font-medium">Discount Reason</th>
                 <th className="text-left px-4 py-2 font-medium">Status</th>
                 <th className="text-right px-4 py-2 font-medium">Actions</th>
               </tr>
@@ -804,11 +869,7 @@ ${hospitalName}`;
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-2">
-                        <div className="text-xs text-muted-foreground max-w-[140px] truncate">
-                          {visit?.symptoms ?? "—"}
-                        </div>
-                      </td>
+                      
                       <td className="px-4 py-2">
                         {bill ? (
                           <div>
@@ -827,6 +888,11 @@ ${hospitalName}`;
                         ) : (
                           <span className="text-muted-foreground text-xs">No bill</span>
                         )}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="text-xs text-muted-foreground max-w-[140px] truncate">
+                          {bill?.remark ?? "—"}
+                        </div>
                       </td>
                       <td className="px-4 py-2">
                         <Badge
@@ -903,10 +969,15 @@ ${hospitalName}`;
                                 </DropdownMenuItem>
                               )}
 
-                              {/* <DropdownMenuItem onClick={() => onTransferIPD(p)}>
-                                <BedDouble className="h-4 w-4 mr-2" />
-                                Transfer to IPD
-                              </DropdownMenuItem> */}
+                               <DropdownMenuItem
+  disabled={transferringPatientId === String(p.id)}
+  onClick={() => void onTransferIPD(p)}
+>
+  <BedDouble className="mr-2 h-4 w-4" />
+  {transferringPatientId === String(p.id)
+    ? "Transferring..."
+    : "Transfer to IPD"}
+</DropdownMenuItem>
 
                               <DropdownMenuItem onClick={() => onEdit(p)}>
                                 <Pencil className="h-4 w-4 mr-2" />
@@ -939,7 +1010,7 @@ ${hospitalName}`;
             </tbody>
           </table>
         </div>
-        <PatientPaymentSummary title="OPD Payment Summary" summary={paymentSummary} />
+        <PatientPaymentSummary title="Total Sale" summary={paymentSummary} />
       </div>
       <Dialog open={!!billingPatient} onOpenChange={(open) => !open && setBillingPatient(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
