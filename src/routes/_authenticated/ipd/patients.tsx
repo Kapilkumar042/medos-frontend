@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import {
   Search,
   ReceiptText,
@@ -13,6 +13,8 @@ import {
   ChevronUp,
   Pencil,
   Trash2,
+  Banknote,
+  Printer,
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,6 +39,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { MessageCircle } from "lucide-react";
 import { MoreVertical } from "lucide-react";
 import {
@@ -50,7 +60,6 @@ import {
 import { toast } from "sonner";
 import { inr } from "@/lib/format";
 import { useCatalogStore } from "@/store/catalogStore";
-import { useEffect } from "react";
 
 import {
   getAdmissions,
@@ -67,6 +76,7 @@ import {
   
 } from "@/api/ipd-api";
 import CreatableSelect from "react-select/creatable";
+import { titleOptions } from "../opd/data";
 import {
   PatientPaymentSummary,
   normalizePatientPaymentSummary,
@@ -76,6 +86,9 @@ import { dashboardApi } from "@/api/dashboardApi";
 
 export const Route = createFileRoute("/_authenticated/ipd/patients")({
   component: IpdPatientsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    edit: typeof search.edit === "string" ? search.edit : undefined,
+  }),
 });
 
 type AdmissionPatient = {
@@ -174,7 +187,10 @@ type ServiceItem = {
   name: string;
   category: string;
   fee: number;
+  expiry?: string;
 };
+
+type ServiceCategory = "-" | "Advance" | "Lab Test" | "Radiology" | "Other" | "Medicine" | "Consultation";
 
 type AdvancePayment = {
   id?: number;
@@ -188,6 +204,11 @@ type AdvancePayment = {
 type DatePreset = "today" | "yesterday" | "week" | "month" | "year" | "custom";
 
 type StatusFilter = "all" | "Admitted" | "Observation" | "Pending" | "Discharged";
+
+const wardOptions = ["General", "ICU", "Private", "Semi-Private", "Pediatric", "Maternity"];
+const roomCategoryOptions = ["General", "Semi-Private", "Private", "ICU"];
+const admissionTypeOptions = ["New", "Existing", "OPD"];
+const admissionStatusOptions = ["Admitted", "Observation", "Pending", "Discharged"];
 
 function formatDate(date: Date) {
   const year = date.getFullYear();
@@ -244,8 +265,12 @@ function getDateFilterLabel(preset: DatePreset, range: DateRange) {
 }
 export function IpdPatientsPage() {
   const navigate = useNavigate();
+  const { edit: editAdmissionId } = Route.useSearch();
   const loadCatalog = useCatalogStore((state) => state.loadCatalog);
+  const backendLabItems = useCatalogStore((state) => state.items.lab);
+  const backendRadiologyItems = useCatalogStore((state) => state.items.radiology);
   const backendServices = useCatalogStore((state) => state.items.service);
+  const backendMedicineItems = useCatalogStore((state) => state.items.medicine);
   const [patients, setPatients] = useState<AdmissionPatient[]>([]);
   const [query, setQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<AdmissionPatient | null>(null);
@@ -255,6 +280,7 @@ export function IpdPatientsPage() {
     uhid: "",
     opdNo: "",
     name: "",
+    salutation: "Mr.",
     gender: "Male",
     dob: "",
     ageYears: "0",
@@ -269,7 +295,7 @@ export function IpdPatientsPage() {
     department: "",
     admissionDate: "",
     admissionTime: "",
-    expectedDischargeDate: "",
+    expectedDischargeDate: null as string | null,
     ward: "",
     roomCategory: "General",
     roomNumber: "",
@@ -289,15 +315,24 @@ export function IpdPatientsPage() {
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [deletingAdmission, setDeletingAdmission] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<(string | number)[]>([]);
-  const [discountPercent, setDiscountPercent] = useState();
-  const [paidAmount, setPaidAmount] = useState(0);
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategory>("-");
+  const [discountPercent, setDiscountPercent] = useState("0");
+  const [paidAmount, setPaidAmount] = useState("0");
   const [selectedServices, setSelectedServices] = useState<any[]>([]);
   const [paymentMode, setPaymentMode] = useState("CASH");
-  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [advanceAmount, setAdvanceAmount] = useState("");
   const [advancePaymentMode, setAdvancePaymentMode] = useState("CASH");
   const [savingAdvance, setSavingAdvance] = useState(false);
   const [advancePayments, setAdvancePayments] = useState<AdvancePayment[]>([]);
   const [showAdvancePayments, setShowAdvancePayments] = useState(false);
+  const [advanceDrawerOpen, setAdvanceDrawerOpen] = useState(false);
+  const [advanceCandidates, setAdvanceCandidates] = useState<AdmissionPatient[]>([]);
+  const [advanceSearch, setAdvanceSearch] = useState("");
+  const [selectedAdvancePatient, setSelectedAdvancePatient] = useState<AdmissionPatient | null>(null);
+  const [collectAmount, setCollectAmount] = useState("");
+  const [collectPaymentMode, setCollectPaymentMode] = useState("CASH");
+  const [loadingAdvanceCandidates, setLoadingAdvanceCandidates] = useState(false);
+  const [collectingAdvance, setCollectingAdvance] = useState(false);
   const [billDate, setBillDate] = useState(new Date().toISOString().slice(0, 10));
 
   const [datePreset, setDatePreset] = useState<DatePreset>("today");
@@ -330,6 +365,15 @@ export function IpdPatientsPage() {
         ];
   }, [backendServices]);
 
+  useEffect(() => {
+    void Promise.all([
+      loadCatalog("lab"),
+      loadCatalog("radiology"),
+      loadCatalog("service"),
+      loadCatalog("medicine"),
+    ]).catch(() => toast.error("Failed to load service catalogs"));
+  }, [loadCatalog]);
+
   const filteredPatients = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return patients;
@@ -342,6 +386,16 @@ export function IpdPatientsPage() {
         patient.doctor.toLowerCase().includes(q),
     );
   }, [patients, query]);
+
+  const searchableAdvancePatients = useMemo(() => {
+    const search = advanceSearch.trim().toLowerCase();
+    if (!search) return advanceCandidates;
+
+    return advanceCandidates.filter((patient) =>
+      [patient.name, patient.uhid, patient.mobile, patient.doctor, String(patient.id)]
+        .some((value) => value.toLowerCase().includes(search)),
+    );
+  }, [advanceCandidates, advanceSearch]);
 
   const openBillingDialog = (patient: AdmissionPatient) => {
     setSelectedPatient(patient);
@@ -378,10 +432,10 @@ const normalizedServices = savedServices.map((saved: any) => {
 
 setSelectedServices(normalizedServices);
 setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
-    setAdvanceAmount(0);
+    setAdvanceAmount("");
     setAdvancePaymentMode("CASH");
-    setDiscountPercent(0);
-    setPaidAmount(0);
+    setDiscountPercent("0");
+    setPaidAmount("0");
     setPaymentMode("CASH");
     setBillDate(patient.billDate || new Date().toISOString().slice(0, 10));
   };
@@ -397,6 +451,7 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
       uhid: patient.uhid,
       opdNo: "",
       name: patient.name,
+      salutation: "Mr.",
       gender: patient.gender || "Male",
       dob: "",
       ageYears: String(patient.age ?? 0),
@@ -441,6 +496,7 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
         uhid: admission.uhid ?? patient.uhid,
         opdNo: admission.opd_no ?? "",
         name: admission.name ?? patient.name,
+        salutation: admission.salutation ?? "Mr.",
         gender: admission.gender ?? patient.gender ?? "Male",
         dob: admission.dob ? String(admission.dob).slice(0, 10) : "",
         ageYears: String(admission.age ?? patient.age ?? 0),
@@ -457,7 +513,8 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
         admissionTime: admissionDate ? admissionDate.toTimeString().slice(0, 5) : "",
         expectedDischargeDate: admission.expected_discharge_date
           ? String(admission.expected_discharge_date).slice(0, 10)
-          : "",
+          : null,
+          
         ward: admission.ward ?? patient.ward,
         roomCategory: admission.room_category ?? "General",
         roomNumber: admission.room ?? patient.room,
@@ -483,6 +540,18 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
     }
   };
 
+  const openEditFromRoute = useEffectEvent((admissionId: string) => {
+    const id = Number(admissionId);
+    if (!Number.isInteger(id) || id <= 0) return;
+
+    void openEditDialog(normalizeAdmission({ id }));
+    void navigate({ to: "/ipd/patients", search: {}, replace: true });
+  });
+
+  useEffect(() => {
+    if (editAdmissionId) openEditFromRoute(editAdmissionId);
+  }, [editAdmissionId]);
+
   const handleEditAdmission = async () => {
     if (!editPatient) return;
 
@@ -493,6 +562,7 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
         uhid: editForm.uhid,
         opd_no: editForm.opdNo,
         name: editForm.name,
+        salutation: editForm.salutation,
         mobile: editForm.mobile,
         gender: editForm.gender,
         age: Number(editForm.ageYears) || 0,
@@ -509,7 +579,7 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
         room: editForm.roomNumber,
         bed_no: editForm.bedNumber,
         admission_date: `${editForm.admissionDate}T${editForm.admissionTime || "00:00"}:00`,
-        expected_discharge_date: editForm.expectedDischargeDate,
+        expected_discharge_date: editForm.expectedDischargeDate || null,
         room_category: editForm.roomCategory,
         admission_type: editForm.admissionType,
         reason: editForm.reason,
@@ -557,7 +627,7 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
   };
 
   const handleAddAdvance = async () => {
-    if (!selectedPatient || advanceAmount <= 0) {
+    if (!selectedPatient || Number(advanceAmount) <= 0) {
       toast.error("Enter a valid advance amount");
       return;
     }
@@ -586,7 +656,7 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
       }
 
       await loadPayments(selectedPatient.id);
-      setAdvanceAmount(0);
+      setAdvanceAmount("");
     } catch (error) {
       console.error(error);
       toast.error("Failed to save advance payment", {
@@ -653,12 +723,12 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
     const qty = Number(service.qty) || 1;
     return sum + fee * qty;
   }, 0);
-  const discountValue = subtotal * (discountPercent / 100);
+  const discountValue = subtotal * ((Number(discountPercent) || 0) / 100);
   const netTotal = subtotal - discountValue;
 
   const dueAmount = selectedPatient?.dueAmount ?? 0;
 
-  const balanceDue = Math.max(dueAmount - paidAmount, 0);
+  const balanceDue = Math.max(dueAmount - (Number(paidAmount) || 0), 0);
 
   const removeService = (id: string | number) => {
     setSelectedServiceIds((current) =>
@@ -880,14 +950,14 @@ const saveIPDBill = (data: any) => {
     }
   };
 const handlePayDue = async () => {
-  if (!selectedPatient || paidAmount <= 0) {
+  if (!selectedPatient || Number(paidAmount) <= 0) {
     toast.error("Enter a valid payment amount");
     return;
   }
 
   try {
     await addAdvancePayment(selectedPatient.id, {
-      amount: Number(paidAmount),
+      amount: Number(paidAmount) || 0,
       payment_mode: paymentMode,
     });
 
@@ -924,11 +994,82 @@ const handlePayDue = async () => {
       e.preventDefault();
     }
   };
-  const serviceOptions = billingServices
+  const catalogServices: ServiceItem[] =
+    serviceCategory === "-"
+      ? [
+          ...backendLabItems.map((item) => ({
+            id: `lab-${String(item.id ?? item.code ?? item.name)}`,
+            name: item.name,
+            category: "Lab Test",
+            fee: Number(item.price ?? item.unitPrice ?? item.mrp ?? 0),
+          })),
+          ...backendRadiologyItems.map((item) => ({
+            id: `radiology-${String(item.id ?? item.code ?? item.name)}`,
+            name: item.name,
+            category: "Radiology",
+            fee: Number(item.price ?? item.unitPrice ?? item.mrp ?? 0),
+          })),
+          ...backendMedicineItems.map((item) => ({
+            id: `medicine-${String(item.id ?? item.code ?? item.name)}`,
+            name: item.name,
+            category: "Medicine",
+            fee: Number(item.unitPrice ?? item.mrp ?? item.price ?? 0),
+            expiry: item.expiry,
+          })),
+          ...backendServices
+            .filter((item) => item.status !== "Inactive")
+            .map((item) => ({
+              id: `service-${String(item.id ?? item.code ?? item.name)}`,
+              name: item.name,
+              category: item.category ?? "Other",
+              fee: Number(item.price ?? item.unitPrice ?? item.mrp ?? 0),
+            })),
+          ...(backendServices.some((item) => item.status !== "Inactive") ? [] : billingServices),
+        ]
+      : serviceCategory === "Lab Test"
+      ? backendLabItems.map((item) => ({
+          id: String(item.id ?? item.code ?? item.name),
+          name: item.name,
+          category: "Lab Test",
+          fee: Number(item.price ?? item.unitPrice ?? item.mrp ?? 0),
+        }))
+      : serviceCategory === "Radiology"
+        ? backendRadiologyItems.map((item) => ({
+            id: String(item.id ?? item.code ?? item.name),
+            name: item.name,
+            category: "Radiology",
+            fee: Number(item.price ?? item.unitPrice ?? item.mrp ?? 0),
+          }))
+        : serviceCategory === "Medicine"
+          ? backendMedicineItems.map((item) => ({
+              id: String(item.id ?? item.code ?? item.name),
+              name: item.name,
+              category: "Medicine",
+              fee: Number(item.unitPrice ?? item.mrp ?? item.price ?? 0),
+              expiry: item.expiry,
+            }))
+          : serviceCategory === "Consultation"
+            ? billingServices.filter((service) =>
+                /consult|doctor/i.test(`${service.category} ${service.name}`),
+              )
+            : serviceCategory === "Other"
+              ? billingServices
+              : [];
+
+  const fallbackServices = billingServices.filter((service) => {
+    if (serviceCategory === "Lab Test") return /lab/i.test(`${service.category} ${service.name}`);
+    if (serviceCategory === "Radiology") return /radiology/i.test(`${service.category} ${service.name}`);
+    if (serviceCategory === "Medicine") return /pharmacy|medicine|medication/i.test(`${service.category} ${service.name}`);
+    if (serviceCategory === "Consultation") return /consult|doctor/i.test(`${service.category} ${service.name}`);
+    return false;
+  });
+
+  const servicesForCategory = catalogServices.length ? catalogServices : fallbackServices;
+  const serviceOptions = servicesForCategory
     .filter((service) => !selectedServiceIds.some((id) => String(id) === String(service.id)))
     .map((service) => ({
       value: service.id,
-      label: `${service.name} — ${inr(service.fee)}`,
+      label: service.name,
       service,
     }));
 
@@ -1023,6 +1164,75 @@ const handlePayDue = async () => {
   }
 };
 
+  const openAdvanceDrawer = async () => {
+    setAdvanceDrawerOpen(true);
+    setAdvanceSearch("");
+    setSelectedAdvancePatient(null);
+    setCollectAmount("");
+    setLoadingAdvanceCandidates(true);
+
+    try {
+      const data = await getAdmissions();
+      const normalized = Array.isArray(data)
+        ? data.filter((item) => item.status !== "Deleted").map(normalizeAdmission)
+        : [];
+      setAdvanceCandidates(normalized);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load admissions");
+      setAdvanceCandidates([]);
+    } finally {
+      setLoadingAdvanceCandidates(false);
+    }
+  };
+
+  const handleCollectAdvance = async () => {
+    if (!selectedAdvancePatient) return;
+    const amount = Number(collectAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid advance amount");
+      return;
+    }
+
+    setCollectingAdvance(true);
+    try {
+      await addAdvancePayment(selectedAdvancePatient.id, {
+        amount,
+        payment_mode: collectPaymentMode,
+      });
+
+      const updatedAdvance = selectedAdvancePatient.advancePayment + amount;
+      const updatedPatient = { ...selectedAdvancePatient, advancePayment: updatedAdvance };
+      setSelectedAdvancePatient(updatedPatient);
+      setAdvanceCandidates((current) =>
+        current.map((patient) => patient.id === updatedPatient.id ? updatedPatient : patient),
+      );
+      setCollectAmount("");
+      await loadPatients();
+      toast.success("Advance payment collected");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.detail || "Failed to collect advance payment");
+    } finally {
+      setCollectingAdvance(false);
+    }
+  };
+
+    const handlePrintBill = async (patient: AdmissionPatient) => {
+      if (!patient.billId) {
+        toast.error("No bill found for this admission");
+        return;
+      }
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Please allow pop-ups to print the bill");
+        return;
+      }
+
+      await printIPDBill(patient.billId, printWindow);
+    };
+
   return (
     <>
       <PageHeader
@@ -1038,12 +1248,130 @@ const handlePayDue = async () => {
   <Download className="mr-1.5 h-4 w-4" />
   Export PDF
 </Button>
+        <Button type="button" variant="outline" onClick={() => void openAdvanceDrawer()}>
+          <Banknote className="mr-1.5 h-4 w-4" />
+          Collect Advance
+        </Button>
         <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">
           <Link to="/ipd/admission">
             <Plus className="h-4 w-4 mr-1.5" /> New Admission
           </Link>
         </Button>
       </PageHeader>
+
+      <Drawer
+        direction="right"
+        open={advanceDrawerOpen}
+        onOpenChange={setAdvanceDrawerOpen}
+      >
+        <DrawerContent className="inset-y-0 right-0 left-auto bottom-auto mt-0 h-full w-105 max-w-[90vw] rounded-none border-l">
+          <DrawerHeader>
+            <DrawerTitle>Collect advance payment</DrawerTitle>
+            <DrawerDescription>Search for an admitted patient and record a payment.</DrawerDescription>
+          </DrawerHeader>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={advanceSearch}
+                onChange={(event) => {
+                  setAdvanceSearch(event.target.value);
+                  setSelectedAdvancePatient(null);
+                }}
+                placeholder="Search name, UHID, mobile, or ID"
+                className="pl-9"
+              />
+            </div>
+
+            {advanceSearch.trim() && (
+              <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
+                {loadingAdvanceCandidates ? (
+                  <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    Loading admissions...
+                  </p>
+                ) : searchableAdvancePatients.length ? (
+                  searchableAdvancePatients.map((patient) => (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      onClick={() => setSelectedAdvancePatient(patient)}
+                      className={`block w-full px-3 py-3 text-left hover:bg-muted/50 ${selectedAdvancePatient?.id === patient.id ? "bg-muted" : ""}`}
+                    >
+                      <span className="block text-sm font-medium">{patient.name}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {[patient.uhid, patient.mobile, `Admission #${patient.id}`]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    No matching admissions
+                  </p>
+                )}
+              </div>
+            )}
+
+            <section className="space-y-4 border-t pt-4">
+              {selectedAdvancePatient ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Selected patient</p>
+                  <p className="mt-1 font-medium">{selectedAdvancePatient.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAdvancePatient.uhid || `Admission #${selectedAdvancePatient.id}`}
+                  </p>
+                  <p className="mt-2 text-sm">
+                    Current advance: {inr(selectedAdvancePatient.advancePayment)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Select a patient to continue.</p>
+              )}
+
+              <label className="block space-y-1 text-sm">
+                <span className="text-muted-foreground">Amount</span>
+                <Input
+                  type="number"
+                  min={0.01}
+                  step="0.01"
+                  value={collectAmount}
+                  onChange={(event) => setCollectAmount(event.target.value)}
+                  placeholder="Enter amount"
+                  disabled={!selectedAdvancePatient}
+                />
+              </label>
+
+              <label className="block space-y-1 text-sm">
+                <span className="text-muted-foreground">Payment mode</span>
+                <Select
+                  value={collectPaymentMode}
+                  onValueChange={setCollectPaymentMode}
+                  disabled={!selectedAdvancePatient}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"].map((mode) => (
+                      <SelectItem key={mode} value={mode}>{mode}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            </section>
+          </div>
+
+          <DrawerFooter>
+            <Button
+              type="button"
+              onClick={() => void handleCollectAdvance()}
+              disabled={!selectedAdvancePatient || Number(collectAmount) <= 0 || collectingAdvance}
+            >
+              {collectingAdvance ? "Saving..." : "Collect advance"}
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       <div className="rounded-2xl bg-card border border-border shadow-soft">
         <div className="p-4 flex items-center gap-2">
@@ -1240,6 +1568,13 @@ const handlePayDue = async () => {
                             Billing
                           </DropdownMenuItem>
 
+                          {patient.billId && (
+                            <DropdownMenuItem onClick={() => void handlePrintBill(patient)}>
+                              <Printer className="mr-2 h-4 w-4" />
+                              Print Bill
+                            </DropdownMenuItem>
+                          )}
+
                           {/* {bill && (
                                                   <DropdownMenuItem onClick={() => sendBillOnWhatsApp(p, bill)}>
                                                     <MessageCircle className="h-4 w-4 mr-2" />
@@ -1278,7 +1613,7 @@ const handlePayDue = async () => {
             </tbody>
           </table>
         </div>
-        <PatientPaymentSummary title="IPD Payment Summary" summary={paymentSummary} />
+        <PatientPaymentSummary title="Total Sale" summary={paymentSummary} />
       </div>
 
       <Dialog open={!!selectedPatient} onOpenChange={(open) => !open && setSelectedPatient(null)}>
@@ -1368,8 +1703,8 @@ const handlePayDue = async () => {
                       min={0}
                       step="0.01"
                       placeholder="Amount"
-                      value={advanceAmount || ""}
-                      onChange={(event) => setAdvanceAmount(Number(event.target.value) || 0)}
+                      value={advanceAmount}
+                      onChange={(event) => setAdvanceAmount(event.target.value)}
                     />
 
                     <Select value={advancePaymentMode} onValueChange={setAdvancePaymentMode}>
@@ -1389,7 +1724,7 @@ const handlePayDue = async () => {
                     <Button
                       type="button"
                       onClick={handleAddAdvance}
-                      disabled={savingAdvance || advanceAmount <= 0}
+                      disabled={savingAdvance || Number(advanceAmount) <= 0}
                     >
                       {savingAdvance ? "Saving..." : "Add Advance"}
                     </Button>
@@ -1469,11 +1804,46 @@ const handlePayDue = async () => {
                     Select Services
                   </div>
 
-                  <div className="rounded-xl ">
+                  <div className="rounded-xl grid gap-3 p-4 md:grid-cols-2">
+                    <label className="mb-2 block space-y-1 text-sm">
+                      <span className="text-muted-foreground">Service category</span>
+                      <Select
+                        value={serviceCategory}
+                        onValueChange={(value) => setServiceCategory(value as ServiceCategory)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="All services" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="-">All services</SelectItem>
+                          <SelectItem value="Lab Test">Lab Test</SelectItem>
+                          <SelectItem value="Radiology">Radiology</SelectItem>
+                          <SelectItem value="Medicine">Medicine</SelectItem>
+                          <SelectItem value="Consultation">Consultation</SelectItem>
+                          <SelectItem value="Other">Other services</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </label>
+                    <div>
+                    <label className=" block space-y-1 text-sm" htmlFor="">Services</label>
                     <CreatableSelect
+                    styles={{
+                        control: (base, state) => ({
+                          ...base,
+                          minHeight: 32,
+                          height: 32,
+                          borderColor: state.isFocused ? "var(--ring)" : "var(--input)",
+                          borderRadius: "0.375rem",
+                          backgroundColor: "var(--background)",
+                          boxShadow: state.isFocused ? "0 0 0 1px var(--ring)" : "none",
+                          "&:hover": { borderColor: "var(--ring)" },
+                        }),
+                      }}
                       isClearable
                       placeholder="Search or create service..."
+                      noOptionsMessage={() => "No services available in this category"}
                       options={serviceOptions}
+                      value={null}
                       onChange={(option: any) => {
                         if (!option) return;
 
@@ -1515,6 +1885,7 @@ const handlePayDue = async () => {
                         ]);
                       }}
                     />
+                    </div>
                   </div>
 
                   {selectedServices.length > 0 ? (
@@ -1607,7 +1978,7 @@ const handlePayDue = async () => {
                       // min={0}
                       max={100}
                       value={discountPercent}
-                      onChange={(event) => setDiscountPercent(Number(event.target.value) || 0)}
+                      onChange={(event) => setDiscountPercent(event.target.value)}
                     />
                   </div>
 
@@ -1635,13 +2006,13 @@ const handlePayDue = async () => {
                         // min={0}
                         // step="0.01"
                         value={paidAmount}
-                        onChange={(event) => setPaidAmount(Number(event.target.value) || 0)}
+                        onChange={(event) => setPaidAmount(event.target.value)}
                       />
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setPaidAmount(dueAmount)}
+                        onClick={() => setPaidAmount(String(dueAmount))}
                       >
                         Clear Due
                       </Button>
@@ -1737,6 +2108,32 @@ const handlePayDue = async () => {
           ) : (
             <div className="space-y-5">
               <EditSection title="Patient Information">
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Salutation</span>
+                  <CreatableSelect
+                    options={titleOptions}
+                    value={titleOptions.find((option) => option.value === editForm.salutation) ??
+                      (editForm.salutation
+                        ? { value: editForm.salutation, label: editForm.salutation }
+                        : null)}
+                    onChange={(option: { value: string; label: string } | null) => {
+                      const salutation = option?.value ?? "Mr.";
+                      setEditForm((current) => ({
+                        ...current,
+                        salutation,
+                        gender:
+                          salutation === "Mr." || salutation === "Master" || salutation === "Mohd"
+                            ? "Male"
+                            : salutation === "Dr."
+                              ? "-"
+                              : "Female",
+                      }));
+                    }}
+                    isClearable
+                    isSearchable
+                    placeholder="Select or type salutation"
+                  />
+                </label>
                 <EditField
                   label="Patient name"
                   value={editForm.name}
@@ -1790,24 +2187,34 @@ const handlePayDue = async () => {
                   value={editForm.attendantName}
                   onChange={(value) => updateEditField("attendantName", value)}
                 />
-                <EditField
-                  label="Age (years)"
-                  type="number"
-                  value={editForm.ageYears}
-                  onChange={(value) => syncEditDobFromAge("ageYears", value)}
-                />
-                <EditField
-                  label="Age (months)"
-                  type="number"
-                  value={editForm.ageMonths}
-                  onChange={(value) => syncEditDobFromAge("ageMonths", value)}
-                />
-                <EditField
-                  label="Age (days)"
-                  type="number"
-                  value={editForm.ageDays}
-                  onChange={(value) => syncEditDobFromAge("ageDays", value)}
-                />
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Age (Y/M/D)</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="Y"
+                      value={editForm.ageYears}
+                      onChange={(event) => syncEditDobFromAge("ageYears", event.target.value)}
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={11}
+                      placeholder="M"
+                      value={editForm.ageMonths}
+                      onChange={(event) => syncEditDobFromAge("ageMonths", event.target.value)}
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={30}
+                      placeholder="D"
+                      value={editForm.ageDays}
+                      onChange={(event) => syncEditDobFromAge("ageDays", event.target.value)}
+                    />
+                  </div>
+                </label>
               </EditSection>
 
               <EditSection title="Admission Details">
@@ -1826,7 +2233,7 @@ const handlePayDue = async () => {
                 <EditField
                   label="Expected discharge"
                   type="date"
-                  value={editForm.expectedDischargeDate}
+                  value={editForm.expectedDischargeDate ?? ""}
                   onChange={(value) => updateEditField("expectedDischargeDate", value)}
                 />
                 <EditField
@@ -1834,47 +2241,73 @@ const handlePayDue = async () => {
                   value={editForm.department}
                   onChange={(value) => updateEditField("department", value)}
                 />
-                <EditField
+                {/* <EditField
                   label="Doctor ID"
                   type="number"
                   value={editForm.doctorId}
                   onChange={(value) => updateEditField("doctorId", value)}
-                />
-                <EditField
-                  label="Ward"
-                  value={editForm.ward}
-                  onChange={(value) => updateEditField("ward", value)}
-                />
-                <EditField
-                  label="Room category"
-                  value={editForm.roomCategory}
-                  onChange={(value) => updateEditField("roomCategory", value)}
-                />
-                <EditField
-                  label="Room number"
-                  value={editForm.roomNumber}
-                  onChange={(value) => updateEditField("roomNumber", value)}
-                />
-                <EditField
-                  label="Bed number"
-                  value={editForm.bedNumber}
-                  onChange={(value) => updateEditField("bedNumber", value)}
-                />
-                <EditField
-                  label="Admission type"
-                  value={editForm.admissionType}
-                  onChange={(value) => updateEditField("admissionType", value)}
-                />
+                /> */}
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Admission type</span>
+                  <Select
+                    value={editForm.admissionType}
+                    onValueChange={(value) => updateEditField("admissionType", value)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      {admissionTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Ward</span>
+                  <Select
+                    value={editForm.ward}
+                    onValueChange={(value) => updateEditField("ward", value)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
+                    <SelectContent>
+                      {wardOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Room category</span>
+                  <Select
+                    value={editForm.roomCategory}
+                    onValueChange={(value) => updateEditField("roomCategory", value)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Room category" /></SelectTrigger>
+                    <SelectContent>
+                      {roomCategoryOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
                 <EditField
                   label="Referral"
                   value={editForm.referral}
                   onChange={(value) => updateEditField("referral", value)}
                 />
-                <EditField
-                  label="Status"
-                  value={editForm.status}
-                  onChange={(value) => updateEditField("status", value)}
-                />
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) => updateEditField("status", value)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      {admissionStatusOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
               </EditSection>
 
               <EditSection title="Clinical Summary">

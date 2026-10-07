@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { BedDouble, CalendarDays, Clock3, Save, Stethoscope, UserRoundPlus } from "lucide-react";
+import { BedDouble, CalendarDays, Save, Stethoscope, UserRoundPlus } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import CreatableSelect, { type CreatableProps } from "react-select/creatable";
+import type { GroupBase } from "react-select";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,11 +16,54 @@ import { toast } from "sonner";
 import {
   getAdmissions,
   admitNewPatient,
-  dischargePatient,
-  admitFromOpd,addAdvancePayment
+  admitExistingPatient,
+  admitFromOpd,
+  addAdvancePayment,
+  printIPDAdmission,
 } from "@/api/ipd-api";
 import { useEffect, useState } from "react";
-import { collectAdvance } from "@/api/ipd-payment-api";
+import { titleOptions } from "../opd/data";
+
+function CompactCreatableSelect<
+  Option,
+  IsMulti extends boolean = false,
+  Group extends GroupBase<Option> = GroupBase<Option>,
+>({ styles, ...props }: CreatableProps<Option, IsMulti, Group>) {
+  return (
+    <CreatableSelect
+      {...props}
+      styles={{
+        control: (base) => ({
+          ...base,
+          minHeight: 32,
+          height: 32,
+          borderRadius: 12,
+        }),
+        valueContainer: (base) => ({
+          ...base,
+          height: 32,
+          padding: "0 8px",
+        }),
+        input: (base) => ({
+          ...base,
+          margin: 0,
+          padding: 0,
+        }),
+        indicatorsContainer: (base) => ({
+          ...base,
+          height: 32,
+        }),
+        ...styles,
+      }}
+    />
+  );
+}
+
+const optionalAge = z
+  .union([z.number(), z.string()])
+  .optional()
+  .transform((value) => (value == null || value === "" ? undefined : Number(value)))
+  .pipe(z.number().min(0).optional());
 
 const admissionSchema = z.object({
   patientId: z.string().optional(),
@@ -27,9 +72,10 @@ const admissionSchema = z.object({
   name: z.string().min(2, "Patient name is required"),
   gender: z.enum(["Male", "Female", "Other", "-"]).optional(),
   dob: z.string().optional(),
-  ageYears: z.coerce.number().min(0).default(0),
-  ageMonths: z.coerce.number().min(0).max(11).default(0),
-  ageDays: z.coerce.number().min(0).max(30).default(0),
+  ageYears: optionalAge,
+  ageMonths: optionalAge.pipe(z.number().min(0).max(11).optional()),
+  ageDays: optionalAge.pipe(z.number().min(0).max(30).optional()),
+  salutation: z.string().optional(),
   mobile: z
     .string()
     .min(10, "Mobile number should be at least 10 digits")
@@ -65,6 +111,7 @@ const admissionSchema = z.object({
 });
 
 type FormData = z.infer<typeof admissionSchema>;
+type FormInput = z.input<typeof admissionSchema>;
 
 const wardOptions = ["General", "ICU", "Private", "Semi-Private", "Pediatric", "Maternity"];
 const roomCategoryOptions = ["General", "Semi-Private", "Private", "ICU"];
@@ -94,11 +141,12 @@ function Page() {
     watch,
     reset,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<FormInput, any, FormData>({
     resolver: zodResolver(admissionSchema),
     defaultValues: {
       name: "",
       gender: "Male",
+      salutation: "Mr.",
       mobile: "",
       address: "",
       ageYears: 0,
@@ -157,22 +205,53 @@ useEffect(() => {
     setValue("ageDays", Math.max(0, days));
   };
 
-  const syncDobFromAge = (years: number, months: number, days: number) => {
-    setValue("ageYears", years);
-    setValue("ageMonths", months);
-    setValue("ageDays", days);
+  const syncDobFromAge = (years?: number, months?: number, days?: number) => {
+    if (years === undefined && months === undefined && days === undefined) return;
 
     const today = new Date();
     const dob = new Date(
-      today.getFullYear() - years,
-      today.getMonth() - months,
-      today.getDate() - days,
+      today.getFullYear() - (years ?? 0),
+      today.getMonth() - (months ?? 0),
+      today.getDate() - (days ?? 0),
     );
 
     setValue("dob", dob.toISOString().slice(0, 10));
   };
 
+  const handleAgeChange = (field: "ageYears" | "ageMonths" | "ageDays", value: string) => {
+    const parsedValue = value === "" ? undefined : Number(value);
+    const current = watch();
+    const years =
+      field === "ageYears"
+        ? parsedValue
+        : current.ageYears === ""
+          ? undefined
+          : Number(current.ageYears);
+    const months =
+      field === "ageMonths"
+        ? parsedValue
+        : current.ageMonths === ""
+          ? undefined
+          : Number(current.ageMonths);
+    const days =
+      field === "ageDays"
+        ? parsedValue
+        : current.ageDays === ""
+          ? undefined
+          : Number(current.ageDays);
+
+    setValue(field, parsedValue ?? "", { shouldDirty: true, shouldValidate: true });
+    syncDobFromAge(years, months, days);
+  };
+
   const onSubmit = async (values: FormData) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    toast.error("Please allow pop-ups to print the admission");
+  } else {
+    printWindow.document.write("<p>Preparing admission print...</p>");
+  }
+
   try {
     const payload = {
       patient_id: values.patientId
@@ -184,6 +263,7 @@ useEffect(() => {
       mobile: values.mobile,
 
       gender: values.gender,
+      salutation: values.salutation,
 
       age: Number(values.ageYears ?? 0),
 
@@ -205,29 +285,13 @@ useEffect(() => {
       admission_date: `${values.admissionDate}T${values.admissionTime}:00`,
     };
 
-    let response;
+    let response: any;
 
     // NEW PATIENT
     if (
       values.admissionType === "New"
     ) {
-      const admission =
-        await admitNewPatient(payload);
-console.log("Admission Response", admission);
-        if (
-  Number(values.advancePayment) > 0
-) {
-  await addAdvancePayment(
-    admission.id,
-    {
-      amount: Number(
-        values.advancePayment
-      ),
-      payment_mode: "Cash",
-      remarks: "Admission Advance"
-    }
-  );
-}
+      response = await admitNewPatient(payload);
     }
 
     // OLD PATIENT
@@ -253,6 +317,28 @@ console.log("Admission Response", admission);
       response
     );
 
+    const savedAdmission =
+      response?.admission ??
+      response?.data?.admission ??
+      response?.data?.data ??
+      response?.data ??
+      response;
+    const admissionId = Number(savedAdmission?.id ?? savedAdmission?.admission_id);
+
+    if (values.admissionType === "New" && Number(values.advancePayment) > 0 && admissionId) {
+      await addAdvancePayment(admissionId, {
+        amount: Number(values.advancePayment),
+        payment_mode: "Cash",
+      });
+    }
+
+    if (admissionId && printWindow) {
+      await printIPDAdmission(admissionId, printWindow);
+    } else if (!admissionId) {
+      printWindow?.close();
+      toast.error("Admission saved, but no admission ID was returned for printing");
+    }
+
     toast.success("Patient admitted successfully", {
   duration: 500,
 });
@@ -262,6 +348,7 @@ console.log("Admission Response", admission);
   navigate({ to: "/ipd/patients" });
 }, 1000);
   } catch (error: any) {
+    if (printWindow && !printWindow.closed) printWindow.close();
     console.error(error);
 
     toast.error(
@@ -291,10 +378,38 @@ console.log("Admission Response", admission);
                 <Input placeholder="OPD Number" {...register("opdNo")} />
               </Field> */}
 
+                <Field label="Salutation">
+                <Controller
+                  name="salutation"
+                  control={control}
+                  render={({ field }) => (
+                    <CompactCreatableSelect
+                      options={titleOptions}
+                      value={titleOptions.find((option) => option.value === field.value) ??
+                        (field.value ? { value: field.value, label: field.value } : null)}
+                      onChange={(option) => {
+                        const salutation = option?.value ?? "Mr.";
+                        field.onChange(salutation);
+
+                        const gender =
+                          salutation === "Mr." || salutation === "Master" || salutation === "Mohd"
+                            ? "Male"
+                            : salutation === "Dr."
+                              ? "-"
+                              : "Female";
+
+                        setValue("gender", gender);
+                      }}
+                      isClearable
+                      isSearchable
+                      placeholder="Select or type salutation"
+                    />
+                  )}
+                />
+              </Field>
               <Field label="Patient Name" error={errors.name?.message}>
                 <Input placeholder="Enter patient name" {...register("name")} />
               </Field>
-
               <Field label="Gender">
                 <Controller
                   name="gender"
@@ -330,42 +445,27 @@ console.log("Admission Response", admission);
                     type="number"
                     min={0}
                     placeholder="Y"
-                    {...register("ageYears", { valueAsNumber: true })}
-                    onChange={(e) =>
-                      syncDobFromAge(
-                        Number(e.target.value) || 0,
-                        Number(watch("ageMonths")) || 0,
-                        Number(watch("ageDays")) || 0,
-                      )
-                    }
+                    {...register("ageYears")}
+                    value={watch("ageYears") ?? ""}
+                    onChange={(e) => handleAgeChange("ageYears", e.target.value)}
                   />
                   <Input
                     type="number"
                     min={0}
                     max={11}
                     placeholder="M"
-                    {...register("ageMonths", { valueAsNumber: true })}
-                    onChange={(e) =>
-                      syncDobFromAge(
-                        Number(watch("ageYears")) || 0,
-                        Number(e.target.value) || 0,
-                        Number(watch("ageDays")) || 0,
-                      )
-                    }
+                    {...register("ageMonths")}
+                    value={watch("ageMonths") ?? ""}
+                    onChange={(e) => handleAgeChange("ageMonths", e.target.value)}
                   />
                   <Input
                     type="number"
                     min={0}
                     max={30}
                     placeholder="D"
-                    {...register("ageDays", { valueAsNumber: true })}
-                    onChange={(e) =>
-                      syncDobFromAge(
-                        Number(watch("ageYears")) || 0,
-                        Number(watch("ageMonths")) || 0,
-                        Number(e.target.value) || 0,
-                      )
-                    }
+                    {...register("ageDays")}
+                    value={watch("ageDays") ?? ""}
+                    onChange={(e) => handleAgeChange("ageDays", e.target.value)}
                   />
                 </div>
               </Field>

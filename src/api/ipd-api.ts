@@ -91,6 +91,31 @@ export const getAdmission = async (
   return res.data;
 };
 
+export const printIPDAdmission = async (
+  admissionId: number,
+  popup?: Window | null,
+) => {
+  const target = popup ?? window.open("", "_blank");
+
+  if (!target) {
+    toast.error("Please allow pop-ups to print the admission");
+    return;
+  }
+
+  try {
+    const response = await API.get(`/ipd/${admissionId}/print`, {
+      responseType: "text",
+    });
+
+    target.document.open();
+    target.document.write(response.data);
+    target.document.close();
+  } catch {
+    target.close();
+    toast.error("Failed to open admission print");
+  }
+};
+
 export const exportIPDPatients = async (params: {
   start_date: string;
   end_date: string;

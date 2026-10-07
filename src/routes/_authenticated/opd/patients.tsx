@@ -8,7 +8,7 @@ import { useOpdStore, type OpdPatient } from "@/store/opdStore";
 import { useDoctors } from "@/hooks/useDoctors";
 import { opdApi } from "@/lib/opd-api";
 import { inr } from "@/lib/format";
-import { Receipt, BedDouble, Pencil, Trash2, Plus, Search, Loader2, Download, ReceiptText } from "lucide-react";
+import { Receipt, BedDouble, Pencil, Trash2, Plus, Search, Loader2, Download, ReceiptText, Printer, IndianRupee, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { openBillPreview } from "@/lib/opd-bill-print";
 import { MessageCircle } from "lucide-react";
@@ -49,6 +49,8 @@ import {
   type PatientPaymentSummaryData,
 } from "@/components/shared/PatientPaymentSummary";
 import { dashboardApi } from "@/api/dashboardApi";
+import CreatableSelect from "react-select/creatable";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/opd/patients")({
   component: Page,
@@ -76,6 +78,8 @@ interface Bill {
   pay_mode?: string;
   status?: string;
   remark?:string;
+  payment_type?: "Single Paymode" | "Multi Paymode";
+  discount_source?: "Hospital Discount" | "Doctor Discount";
 }
 
 type BillCategory =
@@ -90,9 +94,9 @@ type BillItem = {
   category: BillCategory;
   name: string;
   code: string;
-  qty: number;
-  amount: number;
-  discount: number;
+  qty: number | string;
+  amount: number | string;
+  discount: number | string;
   remarks: string;
 };
 
@@ -185,9 +189,9 @@ function Page() {
   const [billingVisitId, setBillingVisitId] = useState<number | null>(null);
   const [editingBillId, setEditingBillId] = useState<number | null>(null);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
-  const [totalDiscountAmt, setTotalDiscountAmt] = useState(0);
-  const [totalDiscountPct, setTotalDiscountPct] = useState(0);
-  const [amountPaid, setAmountPaid] = useState(0);
+  const [totalDiscountAmt, setTotalDiscountAmt] = useState("0");
+  const [totalDiscountPct, setTotalDiscountPct] = useState("0");
+  const [amountPaid, setAmountPaid] = useState("");
   const [paymentType, setPaymentType] = useState<"Single Paymode" | "Multi Paymode">(
     "Single Paymode",
   );
@@ -197,6 +201,10 @@ function Page() {
   const [discountSource, setDiscountSource] = useState<"Hospital Discount" | "Doctor Discount">(
     "Hospital Discount",
   );
+  const [billCategory, setBillCategory] = useState<BillCategory>("Consultation fee");
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [zeroBill, setZeroBill] = useState(false);
+  const [submitAction, setSubmitAction] = useState<"save" | "print">("save");
   const [billRemark, setBillRemark] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingSaving, setBillingSaving] = useState(false);
@@ -466,7 +474,18 @@ const admission = await opdApi.admitFromOpd({
       toast.success(
         `Admission created${admission?.admission_no ? `: ${admission.admission_no}` : ""}`,
       );
-      navigate({ to: "/ipd/admission" });
+      const admissionRecord =
+        admission?.admission ??
+        admission?.data?.admission ??
+        admission?.data?.data ??
+        admission?.data ??
+        admission;
+      const admissionId = admissionRecord?.id ?? admissionRecord?.admission_id;
+
+      navigate({
+        to: "/ipd/patients",
+        search: admissionId ? { edit: String(admissionId) } : {},
+      });
     } catch (error) {
       console.error("OPD to IPD admission failed:", error);
       toast.error("Failed to transfer patient to IPD");
@@ -524,12 +543,30 @@ const admission = await opdApi.admitFromOpd({
             }))
           : [newBillItem()],
       );
-      setTotalDiscountAmt(Number(bill?.total_discount) || 0);
-      setTotalDiscountPct(0);
-      setAmountPaid(Number(bill?.paid_amount) || 0);
-      setPaymentType("Single Paymode");
+      const firstCategory = Array.isArray(parsedItems)
+        ? parsedItems.find((item: Partial<BillItem>) => item.category)?.category
+        : undefined;
+      const consultationItem = Array.isArray(parsedItems)
+        ? parsedItems.find((item: Partial<BillItem>) => item.category === "Consultation fee")
+        : undefined;
+      setBillCategory(firstCategory ?? "Consultation fee");
+      setSelectedDoctorId(consultationItem?.code ?? "");
+      setZeroBill(false);
+      setTotalDiscountAmt(String(Number(bill?.total_discount) || 0));
+      const loadedBase = Array.isArray(parsedItems)
+        ? parsedItems.reduce(
+            (sum: number, item: Partial<BillItem>) =>
+              sum + (Number(item.qty) || 0) * (Number(item.amount) || 0) - (Number(item.discount) || 0),
+            0,
+          )
+        : 0;
+      setTotalDiscountPct(
+        String(loadedBase > 0 ? Number(((Number(bill?.total_discount || 0) / loadedBase) * 100).toFixed(2)) : 0),
+      );
+      setAmountPaid(String(Number(bill?.paid_amount) || 0));
+      setPaymentType(bill?.payment_type ?? "Single Paymode");
       setPaymentMode(String(bill?.payment_mode ?? "CASH").toUpperCase() as typeof paymentMode);
-      setDiscountSource("Hospital Discount");
+      setDiscountSource(bill?.discount_source ?? "Hospital Discount");
       setBillRemark(bill?.remark ?? "");
     } catch (error) {
       console.error(error);
@@ -540,11 +577,66 @@ const admission = await opdApi.admitFromOpd({
     }
   };
 
-  const subtotal = billItems.reduce((sum, item) => sum + item.qty * item.amount, 0);
-  const itemDiscount = billItems.reduce((sum, item) => sum + item.discount, 0);
+  const subtotal = billItems.reduce(
+    (sum, item) => sum + (Number(item.qty) || 0) * (Number(item.amount) || 0),
+    0,
+  );
+  const itemDiscount = billItems.reduce((sum, item) => sum + (Number(item.discount) || 0), 0);
   const discountBase = Math.max(0, subtotal - itemDiscount);
-  const billDiscount = Math.min(discountBase, totalDiscountAmt);
-  const netAmount = Math.max(0, discountBase - billDiscount);
+  const billDiscount = Math.min(discountBase, Number(totalDiscountAmt) || 0);
+  const calculatedNet = Math.max(0, discountBase - billDiscount);
+  const netAmount = zeroBill ? 0 : calculatedNet;
+  const displaySubtotal = zeroBill ? 0 : subtotal;
+  const displayDiscount = zeroBill ? discountBase : billDiscount;
+  const totalDue = Math.max(0, netAmount - (Number(amountPaid) || 0));
+
+  const addCatalogItemToBill = (catalogItem: CatalogItem) => {
+    setBillItems((current) => [
+      ...current,
+      {
+        ...newBillItem(billCategory),
+        name: catalogItem.name,
+        code: catalogItem.code || String(catalogItem.id ?? catalogItem.name),
+        amount: Number(catalogItem.unitPrice ?? catalogItem.price ?? catalogItem.mrp ?? 0),
+      },
+    ]);
+  };
+
+  const addCustomBillItem = (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    setBillItems((current) => [...current, { ...newBillItem(billCategory), name: trimmedName }]);
+  };
+
+  const handleDiscountAmountChange = (value: string) => {
+    setTotalDiscountAmt(value);
+    const amount = Math.max(0, Number(value) || 0);
+    setTotalDiscountPct(String(discountBase > 0 ? Number(((amount / discountBase) * 100).toFixed(2)) : 0));
+  };
+
+  const handleDiscountPercentageChange = (value: string) => {
+    setTotalDiscountPct(value);
+    const percentage = Math.min(100, Math.max(0, Number(value) || 0));
+    setTotalDiscountAmt(String(Number(((discountBase * percentage) / 100).toFixed(2))));
+  };
+
+  const selectConsultant = (doctorId: string) => {
+    setSelectedDoctorId(doctorId);
+    const doctor = doctors.find((entry) => String(entry.id) === doctorId);
+    if (!doctor) return;
+
+    const consultationItem: BillItem = {
+      ...newBillItem("Consultation fee"),
+      name: `Dr. ${doctor.first_name} ${doctor.last_name}`,
+      code: String(doctor.id),
+      amount: Number(doctor.normal_fee) || 0,
+    };
+    setBillItems((current) => {
+      const index = current.findIndex((item) => item.category === "Consultation fee");
+      if (index < 0) return [...current, consultationItem];
+      return current.map((item, itemIndex) => itemIndex === index ? consultationItem : item);
+    });
+  };
 
   const updateBillItem = (index: number, patch: Partial<BillItem>) => {
     setBillItems((current) =>
@@ -552,8 +644,15 @@ const admission = await opdApi.admitFromOpd({
     );
   };
 
-  const saveBilling = async () => {
+  const saveBilling = async (action: "save" | "print") => {
     if (!billingPatient) return;
+    setSubmitAction(action);
+
+    const printWindow = action === "print" ? window.open("", "_blank") : null;
+    if (action === "print" && !printWindow) {
+      toast.error("Please allow pop-ups to print the bill");
+      return;
+    }
 
     setBillingSaving(true);
     try {
@@ -561,32 +660,54 @@ const admission = await opdApi.admitFromOpd({
         patient_id: billingPatient.id,
         visit_id: billingVisitId,
         total_amount: subtotal,
-        total_discount: billDiscount,
+        total_discount: zeroBill ? discountBase : billDiscount,
         net_amount: netAmount,
         paid_amount: Number(amountPaid) || 0,
+        due_amount: totalDue,
         payment_mode: paymentMode,
+        payment_type: paymentType,
+        discount_source: discountSource,
         remark: billRemark,
         items: billItems.map((item) => ({
           category: item.category,
           name: item.name,
           code: item.code,
-          qty: Number(item.qty),
-          amount: Number(item.amount),
-          discount: Number(item.discount),
+          qty: Number(item.qty) || 0,
+          amount: Number(item.amount) || 0,
+          discount: Number(item.discount) || 0,
           remarks: item.remarks,
         })),
       };
 
+      let savedBill: any;
       if (editingBillId) {
-        await opdApi.updateBill(editingBillId, payload);
+        savedBill = await opdApi.updateBill(editingBillId, payload);
       } else {
-        await opdApi.createBill(payload);
+        savedBill = await opdApi.createBill(payload);
       }
 
-      setBills(await opdApi.listBills());
+      const refreshedBills = await opdApi.listBills();
+      setBills(refreshedBills);
       toast.success(editingBillId ? "Bill updated" : "Bill created");
-      setBillingPatient(null);
+
+      if (action === "print" && printWindow) {
+        const billId = Number(savedBill?.id ?? savedBill?.bill?.id ?? editingBillId);
+        const latestBillId = billId || Number(
+          refreshedBills
+            .filter((bill: Bill) => String(bill.patient_id) === String(billingPatient.id))
+            .sort((first: Bill, second: Bill) => second.id - first.id)[0]?.id,
+        );
+        if (!latestBillId) throw new Error("Saved bill ID was not returned");
+
+        const html = await opdApi.printBill(latestBillId);
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        setBillingPatient(null);
+      }
     } catch (error) {
+      printWindow?.close();
       console.error(error);
       toast.error("Failed to save bill");
     } finally {
@@ -1025,6 +1146,76 @@ const admission = await opdApi.admitFromOpd({
             <p className="py-8 text-center text-sm text-muted-foreground">Loading bill…</p>
           ) : (
             <>
+              <section className="space-y-3 rounded-xl border border-border p-4">
+                <h3 className="text-sm font-semibold">Visit Details</h3>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Field label="Visit Purpose">
+                    <Select
+                      value={billCategory}
+                      onValueChange={(value) => setBillCategory(value as BillCategory)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select visit purpose" /></SelectTrigger>
+                      <SelectContent>
+                        {[
+                          "Advance",
+                          "Lab Test",
+                          "Radiology",
+                          "Other",
+                          "Medicine",
+                          "Consultation fee",
+                        ].map((category) => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  <Field label="Select Service">
+                    <CreatableSelect
+                      isClearable
+                      isSearchable
+                      value={null}
+                      placeholder="Search or create service"
+                      options={catalogForCategory(billCategory).map((item) => ({
+                        value: String(item.id || item.code || item.name),
+                        label: item.name,
+                        expiry: item.expiry,
+                        item,
+                      }))}
+                      formatOptionLabel={(option) => (
+                        <span>
+                          {option?.label ?? ""}
+                          {billCategory === "Medicine" && option?.expiry && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              Exp: ({option.expiry})
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      onChange={(option) => {
+                        if (option) addCatalogItemToBill(option.item);
+                      }}
+                      onCreateOption={addCustomBillItem}
+                    />
+                  </Field>
+
+                  <Field label="Consultant Doctor">
+                    <Select value={selectedDoctorId} onValueChange={selectConsultant}>
+                      <SelectTrigger><SelectValue placeholder="Select consultant doctor" /></SelectTrigger>
+                      <SelectContent>
+                        {doctors
+                          .filter((doctor) => doctor.status)
+                          .map((doctor) => (
+                            <SelectItem key={doctor.id} value={String(doctor.id)}>
+                              Dr. {doctor.first_name} {doctor.last_name} - Fee: {inr(doctor.normal_fee)}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              </section>
+
               <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
@@ -1199,9 +1390,7 @@ const admission = await opdApi.admitFromOpd({
                               }}
                               onWheel={(event) => event.currentTarget.blur()}
                               onChange={(event) =>
-                                updateBillItem(index, {
-                                  qty: Math.max(0, Math.floor(Number(event.target.value) || 0)),
-                                })
+                                updateBillItem(index, { qty: event.target.value })
                               }
                               onBlur={() =>
                                 updateBillItem(index, {
@@ -1217,7 +1406,7 @@ const admission = await opdApi.admitFromOpd({
                               min={0}
                               value={item.amount}
                               onChange={(event) =>
-                                updateBillItem(index, { amount: Number(event.target.value) || 0 })
+                                updateBillItem(index, { amount: event.target.value })
                               }
                               className="w-24"
                             />
@@ -1228,7 +1417,7 @@ const admission = await opdApi.admitFromOpd({
                               min={0}
                               value={item.discount}
                               onChange={(event) =>
-                                updateBillItem(index, { discount: Number(event.target.value) || 0 })
+                                updateBillItem(index, { discount: event.target.value })
                               }
                               className="w-24"
                             />
@@ -1236,7 +1425,11 @@ const admission = await opdApi.admitFromOpd({
                           <td className="p-2 text-right font-medium">
                             <Input
                               className="w-24 bg-muted/40 text-right"
-                              value={Math.max(0, item.qty * item.amount - item.discount)}
+                              value={Math.max(
+                                0,
+                                (Number(item.qty) || 0) * (Number(item.amount) || 0) -
+                                  (Number(item.discount) || 0),
+                              )}
                               readOnly
                               tabIndex={-1}
                             />
@@ -1289,94 +1482,104 @@ const admission = await opdApi.admitFromOpd({
                 </table>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Total Amount">
-                  <Input value={subtotal} readOnly />
-                </Field>
-                <Field label="Total Discount">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={totalDiscountAmt}
-                    onChange={(event) => setTotalDiscountAmt(Number(event.target.value) || 0)}
-                  />
-                </Field>
-                <Field label="Discount (%)">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={totalDiscountPct}
-                    onChange={(event) => {
-                      const percent = Math.min(100, Math.max(0, Number(event.target.value) || 0));
-                      setTotalDiscountPct(percent);
-                      setTotalDiscountAmt((discountBase * percent) / 100);
-                    }}
-                  />
-                </Field>
-                <Field label="Net Amount">
-                  <Input value={netAmount} readOnly />
-                </Field>
-                <Field label="Payment Type">
-                  <Select
-                    value={paymentType}
-                    onValueChange={(value: typeof paymentType) => setPaymentType(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Single Paymode">Single Paymode</SelectItem>
-                      <SelectItem value="Multi Paymode">Multi Paymode</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Pay Mode">
-                  <Select
-                    value={paymentMode}
-                    onValueChange={(value: typeof paymentMode) => setPaymentMode(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"].map((mode) => (
-                        <SelectItem key={mode} value={mode}>
-                          {mode}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Amount Paid">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={amountPaid}
-                    onChange={(event) => setAmountPaid(Number(event.target.value) || 0)}
-                  />
-                </Field>
-                <Field label="Offer By">
-                  <Select
-                    value={discountSource}
-                    onValueChange={(value: typeof discountSource) => setDiscountSource(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Hospital Discount">Hospital Discount</SelectItem>
-                      <SelectItem value="Doctor Discount">Doctor Discount</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Discount Reason">
-                  <Input
-                    value={billRemark}
-                    onChange={(event) => setBillRemark(event.target.value)}
-                  />
-                </Field>
-              </div>
+              <section className="space-y-4 rounded-xl border border-border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-semibold">Bill Summary</h3>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={zeroBill} onCheckedChange={(checked) => setZeroBill(Boolean(checked))} />
+                    Make bill zero
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Net Payable: <span className="font-semibold text-primary">{inr(netAmount)}</span>
+                  </p>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-4">
+                  <Field label="Total Amount">
+                    <Input value={inr(displaySubtotal)} readOnly className="bg-muted/40" />
+                  </Field>
+                  <div className="flex items-center gap-0 md:mt-7">
+                    <div className="flex items-center">
+                      <div className="flex h-10 w-9 items-center justify-center border border-r-0 bg-muted">
+                        <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0"
+                        value={totalDiscountAmt}
+                        onChange={(event) => handleDiscountAmountChange(event.target.value)}
+                        className="h-10 w-20 rounded-none"
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <div className="flex h-10 w-9 items-center justify-center border border-r-0 bg-muted">
+                        <Percent className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        placeholder="0"
+                        value={totalDiscountPct}
+                        onChange={(event) => handleDiscountPercentageChange(event.target.value)}
+                        className="h-10 w-20 rounded-none"
+                      />
+                    </div>
+                  </div>
+                  <Field label="Total Discount">
+                    <Input value={inr(displayDiscount)} readOnly className="bg-muted/40" />
+                  </Field>
+                  <Field label="Net Amount">
+                    <Input value={inr(netAmount)} readOnly className="bg-muted/40 font-semibold" />
+                  </Field>
+                  <Field label="Payment Type">
+                    <Select value={paymentType} onValueChange={(value) => setPaymentType(value as typeof paymentType)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Single Paymode">Single Paymode</SelectItem>
+                        <SelectItem value="Multi Paymode">Multi Paymode</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Pay Mode">
+                    <Select value={paymentMode} onValueChange={(value) => setPaymentMode(value as typeof paymentMode)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["CASH", "CARD", "UPI", "CHEQUE", "INSURANCE"].map((mode) => (
+                          <SelectItem key={mode} value={mode}>{mode}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Amount Paid">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={amountPaid}
+                      onChange={(event) => setAmountPaid(event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Total Due">
+                    <Input value={inr(zeroBill ? 0 : totalDue)} readOnly className="bg-muted/40 font-medium" />
+                  </Field>
+                  <Field label="Offer By">
+                    <Select value={discountSource} onValueChange={(value) => setDiscountSource(value as typeof discountSource)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Hospital Discount">Hospital Discount</SelectItem>
+                        <SelectItem value="Doctor Discount">Doctor Discount</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Discount Reason">
+                    <Input value={billRemark} onChange={(event) => setBillRemark(event.target.value)} />
+                  </Field>
+                </div>
+              </section>
             </>
           )}
 
@@ -1384,8 +1587,25 @@ const admission = await opdApi.admitFromOpd({
             <Button type="button" variant="outline" onClick={() => setBillingPatient(null)}>
               Cancel
             </Button>
-            <Button type="button" onClick={saveBilling} disabled={billingLoading || billingSaving}>
-              {billingSaving ? "Saving…" : editingBillId ? "Update Bill" : "Save Bill"}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void saveBilling("save")}
+              disabled={billingLoading || billingSaving}
+            >
+              {billingSaving && submitAction === "save"
+                ? "Saving..."
+                : editingBillId
+                  ? "Update Bill"
+                  : "Save Bill"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void saveBilling("print")}
+              disabled={billingLoading || billingSaving}
+            >
+              <Printer className="mr-1.5 h-4 w-4" />
+              {billingSaving && submitAction === "print" ? "Generating bill..." : "Save & Generate Bill"}
             </Button>
           </DialogFooter>
         </DialogContent>
