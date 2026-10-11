@@ -61,6 +61,7 @@ export interface HospitalInfo {
 interface AuthState {
   user: SessionUser | null;
   isAuthenticated: boolean;
+  expiresAt: number | null;
   users: ManagedUser[];
   hospital: HospitalInfo | null;
   setHospital: (hospital: HospitalInfo | ((current: HospitalInfo | null) => HospitalInfo)) => void;
@@ -88,11 +89,14 @@ const seedUsers: ManagedUser[] = [
   },
 ];
 
+export const AUTH_SESSION_DURATION_MS = 60 * 60 * 1000;
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      expiresAt: null,
       users: seedUsers,
       hospital: null,
       setHospital: (hospital) =>
@@ -123,7 +127,10 @@ export const useAuthStore = create<AuthState>()(
             const token = resp.access_token ?? resp.token;
             localStorage.setItem("authToken", token);
             // optionally set token in store state if you add `token` to AuthState
-            set({ isAuthenticated: true });
+            set({
+              isAuthenticated: true,
+              expiresAt: Date.now() + AUTH_SESSION_DURATION_MS,
+            });
           }
 
           // Set hospital and create admin user in local store for demo/fallback
@@ -167,6 +174,7 @@ export const useAuthStore = create<AuthState>()(
 
   set({
     isAuthenticated: true,
+    expiresAt: Date.now() + AUTH_SESSION_DURATION_MS,
     user: {
       id: String(data.user_id),
       name: data.full_name,
@@ -203,6 +211,7 @@ export const useAuthStore = create<AuthState>()(
     user: null,
     hospital: null,
     isAuthenticated: false,
+    expiresAt: null,
   });
 },
     }),

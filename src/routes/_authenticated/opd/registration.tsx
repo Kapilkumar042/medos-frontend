@@ -30,7 +30,7 @@ import { inr } from "@/lib/format";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useOpdStore } from "@/store/opdStore";
-import { opdApi } from "@/lib/opd-api";
+import { opdApi, printHtmlInFrame } from "@/lib/opd-api";
 import { useDoctors } from "@/hooks/useDoctors";
 // import CreatableSelect from "react-select/creatable";
 
@@ -556,31 +556,27 @@ gstPct: patientData.gstPct ?? 0,
   };
   async function openPatientPrint(patientId: number | string): Promise<boolean> {
     // Open immediately so the browser does not block the popup.
-    const printWindow = window.open("", "_blank");
+  //   const printWindow = window.open("", "_blank");
 
-    if (!printWindow) {
-      toast.error("Please allow popups to print the patient receipt");
-      return false;
-    }
+  //   if (!printWindow) {
+  //     toast.error("Please allow popups to print the patient receipt");
+  //     return false;
+  //   }
 
-    printWindow.document.write(`
-    <html>
-      <body>
-        <p>Generating patient receipt...</p>
-      </body>
-    </html>
-  `);
+  //   printWindow.document.write(`
+  //   <html>
+  //     <body>
+  //       <p>Generating patient receipt...</p>
+  //     </body>
+  //   </html>
+  // `);
 
     try {
       const html = await opdApi.printPatient(patientId);
-
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-
-      return true;
+printHtmlInFrame(html);
+return true;
     } catch (error) {
-      printWindow.close();
+      // printWindow.close();
       throw error;
     }
   }

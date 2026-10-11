@@ -7,6 +7,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import InstallButton from "@/components/ui/InstallButton";
 
 function NotFound() {
   return (
@@ -85,7 +86,7 @@ function RootComponent() {
 
       <QueryClientProvider client={queryClient}>
         <Outlet />
-
+<InstallButton/>
         <Toaster richColors position="top-right" />
       </QueryClientProvider>
     </>

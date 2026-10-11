@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Outlet, useRouterState } from "@tanstack/react-router";
+import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Sidebar } from "./Sidebar";
 import { TopNavbar } from "./TopNavbar";
 import { PatientDrawer } from "@/components/shared/PatientDrawer";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { useUIStore } from "@/store/uiStore";
+import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 import type { Patient } from "@/lib/mock-data";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -12,6 +13,9 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 export function AppLayout() {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const theme = useUIStore((s) => s.theme);
+  const expiresAt = useAuthStore((s) => s.expiresAt);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -25,6 +29,17 @@ export function AppLayout() {
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (expiresAt === null) return;
+
+    const timeout = window.setTimeout(() => {
+      logout();
+      navigate({ to: "/login" });
+    }, Math.max(0, expiresAt - Date.now()));
+
+    return () => window.clearTimeout(timeout);
+  }, [expiresAt, logout, navigate]);
 
   return (
     <div className="min-h-screen w-full bg-background">

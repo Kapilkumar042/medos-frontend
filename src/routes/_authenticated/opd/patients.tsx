@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useOpdStore, type OpdPatient } from "@/store/opdStore";
 import { useDoctors } from "@/hooks/useDoctors";
-import { opdApi } from "@/lib/opd-api";
+import { opdApi, printHtmlInFrame } from "@/lib/opd-api";
 import { inr } from "@/lib/format";
 import { Receipt, BedDouble, Pencil, Trash2, Plus, Search, Loader2, Download, ReceiptText, Printer, IndianRupee, Percent } from "lucide-react";
 import { toast } from "sonner";
@@ -501,19 +501,18 @@ const admission = await opdApi.admitFromOpd({
       return;
     }
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      toast.error("Please allow popups to print the bill");
-      return;
-    }
+    // const printWindow = window.open("", "_blank");
+    // if (!printWindow) {
+    //   toast.error("Please allow popups to print the bill");
+    //   return;
+    // }
 
     try {
       const html = await opdApi.printBill(bill.id);
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
+     setBillingPatient(null);
+requestAnimationFrame(() => printHtmlInFrame(html));
     } catch (error) {
-      printWindow.close();
+      // printWindow.close();
       console.error(error);
       toast.error("Failed to print bill");
     }

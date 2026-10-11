@@ -25,10 +25,12 @@ import {
   Activity,
   Sparkles,
   QrCode,
-  PhoneCall
+  PhoneCall,
+  Megaphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
+import NIcon from "@/image/N-icon.png"
 
 interface SubItem {
   label: string;
@@ -76,6 +78,16 @@ const groups: Group[] = [
       { label: "Bed Management", to: "/ipd/beds", icon: BedDouble },
       { label: "Discharge", to: "/ipd/discharge", icon: FileText },
       { label: "Nursing", to: "/ipd/nursing", icon: HeartPulse },
+    ],
+  },
+  {
+    title: "CRM",
+    icon: PhoneCall,
+    items: [
+      { label: "Overview", to: "/crm-follow-up", icon: PhoneCall },
+      { label: "Internal Follow Up", to: "/crm-follow-up/internal", icon: Users },
+      { label: "External Follow Up", to: "/crm-follow-up/external", icon: PhoneCall },
+      { label: "Leads", to: "/crm-follow-up/leads", icon: Megaphone },
     ],
   },
   {
@@ -175,8 +187,9 @@ export function Sidebar() {
       )}
     >
       <div className="flex h-16 items-center gap-2 px-4 border-b border-sidebar-border shrink-0">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-blue shadow-glow shrink-0">
-          <Sparkles className="h-5 w-5 text-white" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl ">
+          {/* <Sparkles className="h-5 w-5 text-white" /> */}
+          <img src={NIcon} alt="Ncuresoft" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -262,13 +275,19 @@ export function Sidebar() {
       </nav>
 
       {!collapsed && (
-        <div className="p-3 border-t border-sidebar-border">
-          <div className="rounded-xl gradient-blue p-3 text-xs text-white">
-            <div className="font-semibold">Need help?</div>
-            <div className="opacity-90 mt-0.5">24/7 support available</div>
-          </div>
-        </div>
-      )}
+  <div className="p-3 border-t border-sidebar-border">
+    <a
+      href="https://wa.me/917982362399"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Contact support on WhatsApp"
+      className="block rounded-xl gradient-blue p-3 text-xs text-white"
+    >
+      <div className="font-semibold">Need help?</div>
+      <div className="opacity-90 mt-0.5">24/7 support available</div>
+    </a>
+  </div>
+)}
     </aside>
   );
 }

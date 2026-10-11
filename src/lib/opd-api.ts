@@ -1,6 +1,33 @@
 // lib/opd-api.ts
 
 import axios from "axios";
+export function printHtmlInFrame(html: string) {
+  const frame = document.createElement("iframe");
+  frame.title = "Print";
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText =
+    "position:fixed;left:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
+  document.body.appendChild(frame);
+
+  const printWindow = frame.contentWindow;
+  const printDocument = frame.contentDocument;
+
+  if (!printWindow || !printDocument) {
+    frame.remove();
+    throw new Error("Could not create print frame");
+  }
+
+  printWindow.addEventListener("afterprint", () => frame.remove(), { once: true });
+
+  printDocument.open();
+  printDocument.write(html);
+  printDocument.close();
+
+  requestAnimationFrame(() => {
+    printWindow.focus();
+    printWindow.print();
+  });
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_APP_API_URL,

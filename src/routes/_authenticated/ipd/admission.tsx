@@ -245,12 +245,12 @@ useEffect(() => {
   };
 
   const onSubmit = async (values: FormData) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    toast.error("Please allow pop-ups to print the admission");
-  } else {
-    printWindow.document.write("<p>Preparing admission print...</p>");
-  }
+  // const printWindow = window.open("", "_blank");
+  // if (!printWindow) {
+  //   toast.error("Please allow pop-ups to print the admission");
+  // } else {
+  //   printWindow.document.write("<p>Preparing admission print...</p>");
+  // }
 
   try {
     const payload = {
@@ -332,10 +332,10 @@ useEffect(() => {
       });
     }
 
-    if (admissionId && printWindow) {
-      await printIPDAdmission(admissionId, printWindow);
+    if (admissionId ) {
+      await printIPDAdmission(admissionId);
     } else if (!admissionId) {
-      printWindow?.close();
+      
       toast.error("Admission saved, but no admission ID was returned for printing");
     }
 
@@ -348,9 +348,7 @@ useEffect(() => {
   navigate({ to: "/ipd/patients" });
 }, 1000);
   } catch (error: any) {
-    if (printWindow && !printWindow.closed) printWindow.close();
     console.error(error);
-
     toast.error(
       error?.response?.data?.detail ||
       "Admission failed"

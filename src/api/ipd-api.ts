@@ -24,6 +24,93 @@ export type IpdAdmissionFilters = {
   status?: "Admitted" | "Observation" | "Pending" | "Discharged";
   dues_only?: boolean;
 };
+function printHtmlInFrame(html: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const frame = document.createElement("iframe");
+
+    frame.title = "IPD advance payment receipt";
+    frame.setAttribute("aria-hidden", "true");
+    frame.tabIndex = -1;
+
+    frame.style.cssText = [
+      "position:fixed",
+      "left:0",
+      "bottom:0",
+      "width:1px",
+      "height:1px",
+      "border:0",
+      "opacity:0",
+      "pointer-events:none",
+    ].join(";");
+
+    let finished = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+      }
+
+      frame.remove();
+      resolve();
+    };
+
+    const fail = (error: unknown) => {
+      if (finished) return;
+      finished = true;
+
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+      }
+
+      frame.remove();
+      reject(error);
+    };
+
+    try {
+      document.body.appendChild(frame);
+
+      const printWindow = frame.contentWindow;
+      const printDocument = frame.contentDocument;
+
+      if (!printWindow || !printDocument) {
+        throw new Error("Unable to create receipt print frame");
+      }
+
+      printWindow.addEventListener("afterprint", cleanup, {
+        once: true,
+      });
+
+      printDocument.open();
+      printDocument.write(html);
+      printDocument.close();
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (finished) return;
+
+          try {
+            printWindow.focus();
+            printWindow.print();
+
+            // Fallback for browsers that do not fire afterprint.
+            fallbackTimer = setTimeout(cleanup, 3000);
+          } catch (error) {
+            fail(error);
+          }
+        });
+      });
+
+      // Prevent indefinite iframe retention if printing hangs.
+      fallbackTimer = setTimeout(cleanup, 60_000);
+    } catch (error) {
+      fail(error);
+    }
+  });
+}
 
 export const admitNewPatient = async (
   data: any
@@ -95,23 +182,13 @@ export const printIPDAdmission = async (
   admissionId: number,
   popup?: Window | null,
 ) => {
-  const target = popup ?? window.open("", "_blank");
-
-  if (!target) {
-    toast.error("Please allow pop-ups to print the admission");
-    return;
-  }
-
-  try {
+ try {
     const response = await API.get(`/ipd/${admissionId}/print`, {
       responseType: "text",
     });
 
-    target.document.open();
-    target.document.write(response.data);
-    target.document.close();
+   await printHtmlInFrame(response.data);
   } catch {
-    target.close();
     toast.error("Failed to open admission print");
   }
 };
@@ -219,32 +296,91 @@ export const updateIPDBill = async (billId: number, data: any) => {
   const res = await API.put(`/ipd/billing/${billId}`, data);
   return res.data;
 };
-// src/api/ipd-api.ts
-export const printIPDBill = async (
-  billId: number,
-  popup?: Window | null
-) => {
-  const target = popup ?? window.open("", "_blank", "noopener,noreferrer");
 
-  if (!target) {
-    alert("Popup blocked. Please allow pop-ups to print the bill.");
-    return;
-  }
+export const searchIPDAdmissions = async (query: string) => {
+  const response = await API.get("/ipd/search", {
+    params: { q: query },
+  });
+
+  const data = response.data?.data ?? response.data;
+  return Array.isArray(data)
+    ? data
+    : data?.results ?? data?.items ?? [];
+};
+
+export const printIPDAdvanceReceipt = async (
+  admissionId: number,
+  paymentId: number,
+): Promise<void> => {
+  const response = await API.get(
+    `/ipd/${admissionId}/payments/${paymentId}/print`,
+    { responseType: "text" },
+  );
+
+  await printHtmlInFrame(response.data);
+};
+// src/api/ipd-api.ts
+// export const printIPDBill = async (
+//   billId: number,
+//   popup?: Window | null
+// ) => {
+//   const target = popup ?? window.open("", "_blank", "noopener,noreferrer");
+
+//   if (!target) {
+//     alert("Popup blocked. Please allow pop-ups to print the bill.");
+//     return;
+//   }
+
+//   try {
+//     const response = await API.get(`/ipd/billing/${billId}/print`, {
+//       responseType: "text",
+//     });
+
+//     target.document.open();
+//     target.document.write(response.data);
+//     target.document.close();
+//   } catch (error) {
+//     target.close();
+//     alert("Failed to open IPD bill print.");
+//   }
+// };
+export const printIPDBill = async (billId: number) => {
+  let frame: HTMLIFrameElement | undefined;
 
   try {
     const response = await API.get(`/ipd/billing/${billId}/print`, {
       responseType: "text",
     });
 
-    target.document.open();
-    target.document.write(response.data);
-    target.document.close();
+    frame = document.createElement("iframe");
+    frame.title = "IPD bill";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText =
+      "position:fixed;left:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
+    document.body.appendChild(frame);
+
+    const frameDocument = frame.contentDocument;
+    const frameWindow = frame.contentWindow;
+
+    if (!frameDocument || !frameWindow) {
+      throw new Error("Could not create print frame");
+    }
+
+    frameWindow.addEventListener("afterprint", () => frame?.remove(), {
+      once: true,
+    });
+
+    frameDocument.open();
+    frameDocument.write(response.data);
+    frameDocument.close();
+
+    frameWindow.focus();
+    frameWindow.print();
   } catch (error) {
-    target.close();
-    alert("Failed to open IPD bill print.");
+    frame?.remove();
+    toast.error("Failed to print IPD bill");
   }
 };
-
 
 // export const getIPDStats = async () => {
 //   const res = await API.get(

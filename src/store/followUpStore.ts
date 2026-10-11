@@ -95,6 +95,8 @@ export interface FollowUpPatient {
   name: string;
   phone: string;
   age?: number;
+  source?: string;
+  assignedTo?: string;
 
   doctorId?: string;
   doctorName?: string;
@@ -134,6 +136,8 @@ interface AddPatientInput {
   name: string;
   phone: string;
   age?: number;
+  source?: string;
+  assignedTo?: string;
 
   doctorId?: string;
   doctorName?: string;

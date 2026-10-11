@@ -72,9 +72,8 @@ import {
   updateAdmission,
   deleteAdmission,
   exportIPDPatients,
-  updateIPDBill,
-  searchIPDAdmissions,
-  printIPDAdvanceReceipt
+  updateIPDBill
+  
 } from "@/api/ipd-api";
 import CreatableSelect from "react-select/creatable";
 import { titleOptions } from "../opd/data";
@@ -85,7 +84,7 @@ import {
 } from "@/components/shared/PatientPaymentSummary";
 import { dashboardApi } from "@/api/dashboardApi";
 
-export const Route = createFileRoute("/_authenticated/ipd/patients")({
+export const Route = createFileRoute("/_authenticated/ipd/patientsback")({
   component: IpdPatientsPage,
   validateSearch: (search: Record<string, unknown>) => ({
     edit: typeof search.edit === "string" ? search.edit : undefined,
@@ -316,7 +315,7 @@ export function IpdPatientsPage() {
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [deletingAdmission, setDeletingAdmission] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<(string | number)[]>([]);
-  const [serviceCategory, setServiceCategory] = useState<ServiceCategory>("Other");
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategory>("-");
   const [discountPercent, setDiscountPercent] = useState("0");
   const [paidAmount, setPaidAmount] = useState("0");
   const [selectedServices, setSelectedServices] = useState<any[]>([]);
@@ -640,7 +639,6 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
         amount: Number(advanceAmount),
         payment_mode: advancePaymentMode,
       });
-      
 
       toast.success("Advance payment saved", {
         duration: 500,
@@ -728,7 +726,8 @@ setSelectedServiceIds(normalizedServices.map((service) => String(service.id)));
   const discountValue = subtotal * ((Number(discountPercent) || 0) / 100);
   const netTotal = subtotal - discountValue;
 
-  const dueAmount = Math.max(netTotal - (selectedPatient?.advancePayment ?? 0), 0);
+  const dueAmount = selectedPatient?.dueAmount ?? 0;
+
   const balanceDue = Math.max(dueAmount - (Number(paidAmount) || 0), 0);
 
   const removeService = (id: string | number) => {
@@ -900,13 +899,12 @@ const saveIPDBill = (data: any) => {
   };
   const handleDischarge = async () => {
     if (!selectedPatient) return;
-    if (!window.confirm(`Are you sure you want to discharge ${selectedPatient.name}?`)) return;
 
-    // const printWindow = window.open("", "_blank");
-    // if (!printWindow) {
-    //   toast.error("Please allow pop-ups to print the bill", { duration: 500 });
-    //   return;
-    // }
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to print the bill", { duration: 500 });
+      return;
+    }
 
     try {
       const items = selectedServices.map((service) => {
@@ -942,17 +940,12 @@ const saveIPDBill = (data: any) => {
       toast.success("Patient discharged successfully", {
         duration: 500,
       });
-      // await printIPDBill(bill.id);
+      await printIPDBill(bill.id, printWindow);
 
+      loadPatients();
       setSelectedPatient(null);
-      void loadPatients();
-      requestAnimationFrame(() => {
-  void printIPDBill(bill.id);
-});
-      
-      
     } catch (error) {
-      // printWindow.close();
+      printWindow.close();
       toast.error("Discharge failed", { duration: 500 });
     }
   };
@@ -1175,7 +1168,6 @@ const handlePayDue = async () => {
     setAdvanceDrawerOpen(true);
     setAdvanceSearch("");
     setSelectedAdvancePatient(null);
-    setAdvanceCandidates([]);
     setCollectAmount("");
     setLoadingAdvanceCandidates(true);
 
@@ -1194,124 +1186,37 @@ const handlePayDue = async () => {
     }
   };
 
-
-const handleCollectAdvance = async () => {
-  const patient = selectedAdvancePatient;
-
-  if (!patient || collectingAdvance) return;
-
-  const amount = Number(collectAmount);
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    toast.error("Enter a valid advance amount");
-    return;
-  }
-
-  setCollectingAdvance(true);
-
-  let paymentId: number | null = null;
-  let paymentSaved = false;
-
-  try {
-    // 1. Save payment in the backend.
-    const result = await addAdvancePayment(patient.id, {
-      amount,
-      payment_mode: collectPaymentMode,
-    });
-
-    paymentSaved = true;
-
-    // 2. Extract payment ID from common API response shapes.
-    const payment =
-      result?.data?.payment ??
-      result?.data?.data?.payment ??
-      result?.data?.data ??
-      result?.data ??
-      result?.payment ??
-      result;
-
-    const rawId = payment?.payment_id ?? payment?.id;
-    const parsedId = rawId != null ? Number(rawId) : NaN;
-
-    paymentId =
-      Number.isSafeInteger(parsedId) && parsedId > 0
-        ? parsedId
-        : null;
-
-    // 3. Update the patient list locally.
-    setAdvanceCandidates((current) =>
-      current.map((item) =>
-        item.id === patient.id
-          ? {
-              ...item,
-              advancePayment:
-                (Number(item.advancePayment) || 0) + amount,
-            }
-          : item,
-      ),
-    );
-
-    // 4. Close the drawer and clear its state.
-    setAdvanceDrawerOpen(false);
-    setSelectedAdvancePatient(null);
-    setCollectAmount("");
-    setAdvanceSearch("");
-
-    // 5. Release the loading state immediately.
-    setCollectingAdvance(false);
-
-    toast.success("Advance payment collected");
-
-    // 6. Refresh the patient list independently.
-    void loadPatients().catch((error) => {
-      console.error("Failed to refresh IPD patients:", error);
-    });
-
-    // 7. Print independently after the drawer starts closing.
-    if (paymentId !== null) {
-      const receiptPaymentId = paymentId;
-
-      window.setTimeout(() => {
-        void printIPDAdvanceReceipt(
-          patient.id,
-          receiptPaymentId,
-        ).catch((error) => {
-          console.error("Advance receipt printing failed:", error);
-          toast.error(
-            "Payment saved, but receipt printing failed",
-          );
-        });
-      }, 500);
-    } else {
-      toast.warning(
-        "Payment saved, but the receipt ID was not returned",
-      );
+  const handleCollectAdvance = async () => {
+    if (!selectedAdvancePatient) return;
+    const amount = Number(collectAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid advance amount");
+      return;
     }
-  } catch (error: unknown) {
-    console.error("Advance payment failed:", error);
 
-    const message =
-      typeof error === "object" && error !== null && "response" in error
-        ? (
-            error as {
-              response?: {
-                data?: { detail?: string };
-              };
-            }
-          ).response?.data?.detail
-        : undefined;
+    setCollectingAdvance(true);
+    try {
+      await addAdvancePayment(selectedAdvancePatient.id, {
+        amount,
+        payment_mode: collectPaymentMode,
+      });
 
-    if (!paymentSaved) {
-      toast.error(
-        typeof message === "string"
-          ? message
-          : "Failed to collect advance payment",
+      const updatedAdvance = selectedAdvancePatient.advancePayment + amount;
+      const updatedPatient = { ...selectedAdvancePatient, advancePayment: updatedAdvance };
+      setSelectedAdvancePatient(updatedPatient);
+      setAdvanceCandidates((current) =>
+        current.map((patient) => patient.id === updatedPatient.id ? updatedPatient : patient),
       );
+      setCollectAmount("");
+      await loadPatients();
+      toast.success("Advance payment collected");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.detail || "Failed to collect advance payment");
+    } finally {
+      setCollectingAdvance(false);
     }
-  } finally {
-    setCollectingAdvance(false);
-  }
-};
+  };
 
     const handlePrintBill = async (patient: AdmissionPatient) => {
       if (!patient.billId) {
@@ -1319,50 +1224,15 @@ const handleCollectAdvance = async () => {
         return;
       }
 
-      // const printWindow = window.open("", "_blank");
-      // if (!printWindow) {
-      //   toast.error("Please allow pop-ups to print the bill");
-      //   return;
-      // }
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Please allow pop-ups to print the bill");
+        return;
+      }
 
-      await printIPDBill(patient.billId);
+      await printIPDBill(patient.billId, printWindow);
     };
-useEffect(() => {
-  const query = advanceSearch.trim();
 
-  if (!advanceDrawerOpen || !query) {
-    setAdvanceCandidates([]);
-    setLoadingAdvanceCandidates(false);
-    return;
-  }
-
-  let active = true;
-  setLoadingAdvanceCandidates(true);
-
-  const timer = window.setTimeout(() => {
-    void searchIPDAdmissions(query)
-      .then((results) => {
-        if (active) {
-          setAdvanceCandidates(results.map(normalizeAdmission));
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-        if (active) {
-          setAdvanceCandidates([]);
-          toast.error("Failed to search IPD patients");
-        }
-      })
-      .finally(() => {
-        if (active) setLoadingAdvanceCandidates(false);
-      });
-  }, 300);
-
-  return () => {
-    active = false;
-    window.clearTimeout(timer);
-  };
-}, [advanceDrawerOpen, advanceSearch]);
   return (
     <>
       <PageHeader
@@ -1389,19 +1259,11 @@ useEffect(() => {
         </Button>
       </PageHeader>
 
-     <Drawer
-  direction="right"
-  open={advanceDrawerOpen}
-  onOpenChange={(open) => {
-    setAdvanceDrawerOpen(open);
-
-    if (!open) {
-      setSelectedAdvancePatient(null);
-      setCollectAmount("");
-      setAdvanceSearch("");
-    }
-  }}
->
+      <Drawer
+        direction="right"
+        open={advanceDrawerOpen}
+        onOpenChange={setAdvanceDrawerOpen}
+      >
         <DrawerContent className="inset-y-0 right-0 left-auto bottom-auto mt-0 h-full w-105 max-w-[90vw] rounded-none border-l">
           <DrawerHeader>
             <DrawerTitle>Collect advance payment</DrawerTitle>
@@ -1734,13 +1596,13 @@ useEffect(() => {
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
-                          {/* <DropdownMenuItem
+                          <DropdownMenuItem
                             className="text-destructive"
                             onClick={() => quickDischarge(patient)}
                           >
                             <UserRoundCheck className="mr-1.5 h-3.5 w-3.5" />
                             Discharge
-                          </DropdownMenuItem> */}
+                          </DropdownMenuItem>
                           
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -1776,7 +1638,7 @@ useEffect(() => {
                     <div>
                       <div className="text-xs text-muted-foreground">Due Amount</div>
                       <div className="text-lg font-semibold">
-                        {inr(dueAmount)}
+                        {selectedPatient.dueAmount > 0 ? inr(selectedPatient.dueAmount) : inr(0)}
                       </div>
                     </div>
                     <Badge variant="outline" className={statusClasses[selectedPatient.status]}>
@@ -1950,15 +1812,15 @@ useEffect(() => {
                         onValueChange={(value) => setServiceCategory(value as ServiceCategory)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Other Services" />
+                          <SelectValue placeholder="All services" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Other">Other services</SelectItem>
-                          {/* <SelectItem value="-">All services</SelectItem> */}
+                          <SelectItem value="-">All services</SelectItem>
                           <SelectItem value="Lab Test">Lab Test</SelectItem>
                           <SelectItem value="Radiology">Radiology</SelectItem>
                           <SelectItem value="Medicine">Medicine</SelectItem>
                           <SelectItem value="Consultation">Consultation</SelectItem>
+                          <SelectItem value="Other">Other services</SelectItem>
                         </SelectContent>
                       </Select>
                     </label>

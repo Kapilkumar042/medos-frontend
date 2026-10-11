@@ -19,6 +19,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardbbbbRouteImport } from './routes/_authenticated/dashboardbbbb'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedCrmFollowUpIndexRouteImport } from './routes/_authenticated/crm-follow-up/index'
 import { Route as AuthenticatedSettingsUsersRouteImport } from './routes/_authenticated/settings/users'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings/roles'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings/profile'
@@ -55,6 +56,7 @@ import { Route as AuthenticatedMasterDepartmentsRouteImport } from './routes/_au
 import { Route as AuthenticatedLabSamplesRouteImport } from './routes/_authenticated/lab/samples'
 import { Route as AuthenticatedLabReportsRouteImport } from './routes/_authenticated/lab/reports'
 import { Route as AuthenticatedLabBookingRouteImport } from './routes/_authenticated/lab/booking'
+import { Route as AuthenticatedIpdPatientsbackRouteImport } from './routes/_authenticated/ipd/patientsback'
 import { Route as AuthenticatedIpdPatientsRouteImport } from './routes/_authenticated/ipd/patients'
 import { Route as AuthenticatedIpdNursingRouteImport } from './routes/_authenticated/ipd/nursing'
 import { Route as AuthenticatedIpdDischargeRouteImport } from './routes/_authenticated/ipd/discharge'
@@ -63,6 +65,9 @@ import { Route as AuthenticatedIpdAdmissionRouteImport } from './routes/_authent
 import { Route as AuthenticatedHrStaffRouteImport } from './routes/_authenticated/hr/staff'
 import { Route as AuthenticatedHrPayrollRouteImport } from './routes/_authenticated/hr/payroll'
 import { Route as AuthenticatedHrAttendanceRouteImport } from './routes/_authenticated/hr/attendance'
+import { Route as AuthenticatedCrmFollowUpLeadsRouteImport } from './routes/_authenticated/crm-follow-up/leads'
+import { Route as AuthenticatedCrmFollowUpInternalRouteImport } from './routes/_authenticated/crm-follow-up/internal'
+import { Route as AuthenticatedCrmFollowUpExternalRouteImport } from './routes/_authenticated/crm-follow-up/external'
 import { Route as AuthenticatedBillingOpdRouteImport } from './routes/_authenticated/billing/opd'
 import { Route as AuthenticatedBillingIpdRouteImport } from './routes/_authenticated/billing/ipd'
 import { Route as AuthenticatedBillingExpensesRouteImport } from './routes/_authenticated/billing/expenses'
@@ -119,6 +124,12 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCrmFollowUpIndexRoute =
+  AuthenticatedCrmFollowUpIndexRouteImport.update({
+    id: '/crm-follow-up/',
+    path: '/crm-follow-up/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsUsersRoute =
   AuthenticatedSettingsUsersRouteImport.update({
     id: '/settings/users',
@@ -327,6 +338,12 @@ const AuthenticatedLabBookingRoute = AuthenticatedLabBookingRouteImport.update({
   path: '/lab/booking',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedIpdPatientsbackRoute =
+  AuthenticatedIpdPatientsbackRouteImport.update({
+    id: '/ipd/patientsback',
+    path: '/ipd/patientsback',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedIpdPatientsRoute =
   AuthenticatedIpdPatientsRouteImport.update({
     id: '/ipd/patients',
@@ -369,6 +386,24 @@ const AuthenticatedHrAttendanceRoute =
   AuthenticatedHrAttendanceRouteImport.update({
     id: '/hr/attendance',
     path: '/hr/attendance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCrmFollowUpLeadsRoute =
+  AuthenticatedCrmFollowUpLeadsRouteImport.update({
+    id: '/crm-follow-up/leads',
+    path: '/crm-follow-up/leads',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCrmFollowUpInternalRoute =
+  AuthenticatedCrmFollowUpInternalRouteImport.update({
+    id: '/crm-follow-up/internal',
+    path: '/crm-follow-up/internal',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCrmFollowUpExternalRoute =
+  AuthenticatedCrmFollowUpExternalRouteImport.update({
+    id: '/crm-follow-up/external',
+    path: '/crm-follow-up/external',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedBillingOpdRoute = AuthenticatedBillingOpdRouteImport.update({
@@ -414,6 +449,9 @@ export interface FileRoutesByFullPath {
   '/billing/expenses': typeof AuthenticatedBillingExpensesRoute
   '/billing/ipd': typeof AuthenticatedBillingIpdRoute
   '/billing/opd': typeof AuthenticatedBillingOpdRoute
+  '/crm-follow-up/external': typeof AuthenticatedCrmFollowUpExternalRoute
+  '/crm-follow-up/internal': typeof AuthenticatedCrmFollowUpInternalRoute
+  '/crm-follow-up/leads': typeof AuthenticatedCrmFollowUpLeadsRoute
   '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
   '/hr/payroll': typeof AuthenticatedHrPayrollRoute
   '/hr/staff': typeof AuthenticatedHrStaffRoute
@@ -422,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/ipd/discharge': typeof AuthenticatedIpdDischargeRoute
   '/ipd/nursing': typeof AuthenticatedIpdNursingRoute
   '/ipd/patients': typeof AuthenticatedIpdPatientsRoute
+  '/ipd/patientsback': typeof AuthenticatedIpdPatientsbackRoute
   '/lab/booking': typeof AuthenticatedLabBookingRoute
   '/lab/reports': typeof AuthenticatedLabReportsRoute
   '/lab/samples': typeof AuthenticatedLabSamplesRoute
@@ -458,6 +497,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
+  '/crm-follow-up/': typeof AuthenticatedCrmFollowUpIndexRoute
   '/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
 }
 export interface FileRoutesByTo {
@@ -474,6 +514,9 @@ export interface FileRoutesByTo {
   '/billing/expenses': typeof AuthenticatedBillingExpensesRoute
   '/billing/ipd': typeof AuthenticatedBillingIpdRoute
   '/billing/opd': typeof AuthenticatedBillingOpdRoute
+  '/crm-follow-up/external': typeof AuthenticatedCrmFollowUpExternalRoute
+  '/crm-follow-up/internal': typeof AuthenticatedCrmFollowUpInternalRoute
+  '/crm-follow-up/leads': typeof AuthenticatedCrmFollowUpLeadsRoute
   '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
   '/hr/payroll': typeof AuthenticatedHrPayrollRoute
   '/hr/staff': typeof AuthenticatedHrStaffRoute
@@ -482,6 +525,7 @@ export interface FileRoutesByTo {
   '/ipd/discharge': typeof AuthenticatedIpdDischargeRoute
   '/ipd/nursing': typeof AuthenticatedIpdNursingRoute
   '/ipd/patients': typeof AuthenticatedIpdPatientsRoute
+  '/ipd/patientsback': typeof AuthenticatedIpdPatientsbackRoute
   '/lab/booking': typeof AuthenticatedLabBookingRoute
   '/lab/reports': typeof AuthenticatedLabReportsRoute
   '/lab/samples': typeof AuthenticatedLabSamplesRoute
@@ -518,6 +562,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
+  '/crm-follow-up': typeof AuthenticatedCrmFollowUpIndexRoute
   '/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
 }
 export interface FileRoutesById {
@@ -536,6 +581,9 @@ export interface FileRoutesById {
   '/_authenticated/billing/expenses': typeof AuthenticatedBillingExpensesRoute
   '/_authenticated/billing/ipd': typeof AuthenticatedBillingIpdRoute
   '/_authenticated/billing/opd': typeof AuthenticatedBillingOpdRoute
+  '/_authenticated/crm-follow-up/external': typeof AuthenticatedCrmFollowUpExternalRoute
+  '/_authenticated/crm-follow-up/internal': typeof AuthenticatedCrmFollowUpInternalRoute
+  '/_authenticated/crm-follow-up/leads': typeof AuthenticatedCrmFollowUpLeadsRoute
   '/_authenticated/hr/attendance': typeof AuthenticatedHrAttendanceRoute
   '/_authenticated/hr/payroll': typeof AuthenticatedHrPayrollRoute
   '/_authenticated/hr/staff': typeof AuthenticatedHrStaffRoute
@@ -544,6 +592,7 @@ export interface FileRoutesById {
   '/_authenticated/ipd/discharge': typeof AuthenticatedIpdDischargeRoute
   '/_authenticated/ipd/nursing': typeof AuthenticatedIpdNursingRoute
   '/_authenticated/ipd/patients': typeof AuthenticatedIpdPatientsRoute
+  '/_authenticated/ipd/patientsback': typeof AuthenticatedIpdPatientsbackRoute
   '/_authenticated/lab/booking': typeof AuthenticatedLabBookingRoute
   '/_authenticated/lab/reports': typeof AuthenticatedLabReportsRoute
   '/_authenticated/lab/samples': typeof AuthenticatedLabSamplesRoute
@@ -580,6 +629,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/users': typeof AuthenticatedSettingsUsersRoute
+  '/_authenticated/crm-follow-up/': typeof AuthenticatedCrmFollowUpIndexRoute
   '/_authenticated/opd/patient/$patientId': typeof AuthenticatedOpdPatientPatientIdRoute
 }
 export interface FileRouteTypes {
@@ -598,6 +648,9 @@ export interface FileRouteTypes {
     | '/billing/expenses'
     | '/billing/ipd'
     | '/billing/opd'
+    | '/crm-follow-up/external'
+    | '/crm-follow-up/internal'
+    | '/crm-follow-up/leads'
     | '/hr/attendance'
     | '/hr/payroll'
     | '/hr/staff'
@@ -606,6 +659,7 @@ export interface FileRouteTypes {
     | '/ipd/discharge'
     | '/ipd/nursing'
     | '/ipd/patients'
+    | '/ipd/patientsback'
     | '/lab/booking'
     | '/lab/reports'
     | '/lab/samples'
@@ -642,6 +696,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/users'
+    | '/crm-follow-up/'
     | '/opd/patient/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -658,6 +713,9 @@ export interface FileRouteTypes {
     | '/billing/expenses'
     | '/billing/ipd'
     | '/billing/opd'
+    | '/crm-follow-up/external'
+    | '/crm-follow-up/internal'
+    | '/crm-follow-up/leads'
     | '/hr/attendance'
     | '/hr/payroll'
     | '/hr/staff'
@@ -666,6 +724,7 @@ export interface FileRouteTypes {
     | '/ipd/discharge'
     | '/ipd/nursing'
     | '/ipd/patients'
+    | '/ipd/patientsback'
     | '/lab/booking'
     | '/lab/reports'
     | '/lab/samples'
@@ -702,6 +761,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/users'
+    | '/crm-follow-up'
     | '/opd/patient/$patientId'
   id:
     | '__root__'
@@ -719,6 +779,9 @@ export interface FileRouteTypes {
     | '/_authenticated/billing/expenses'
     | '/_authenticated/billing/ipd'
     | '/_authenticated/billing/opd'
+    | '/_authenticated/crm-follow-up/external'
+    | '/_authenticated/crm-follow-up/internal'
+    | '/_authenticated/crm-follow-up/leads'
     | '/_authenticated/hr/attendance'
     | '/_authenticated/hr/payroll'
     | '/_authenticated/hr/staff'
@@ -727,6 +790,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ipd/discharge'
     | '/_authenticated/ipd/nursing'
     | '/_authenticated/ipd/patients'
+    | '/_authenticated/ipd/patientsback'
     | '/_authenticated/lab/booking'
     | '/_authenticated/lab/reports'
     | '/_authenticated/lab/samples'
@@ -763,6 +827,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/users'
+    | '/_authenticated/crm-follow-up/'
     | '/_authenticated/opd/patient/$patientId'
   fileRoutesById: FileRoutesById
 }
@@ -845,6 +910,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/crm-follow-up/': {
+      id: '/_authenticated/crm-follow-up/'
+      path: '/crm-follow-up'
+      fullPath: '/crm-follow-up/'
+      preLoaderRoute: typeof AuthenticatedCrmFollowUpIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings/users': {
@@ -1099,6 +1171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLabBookingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/ipd/patientsback': {
+      id: '/_authenticated/ipd/patientsback'
+      path: '/ipd/patientsback'
+      fullPath: '/ipd/patientsback'
+      preLoaderRoute: typeof AuthenticatedIpdPatientsbackRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ipd/patients': {
       id: '/_authenticated/ipd/patients'
       path: '/ipd/patients'
@@ -1155,6 +1234,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHrAttendanceRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/crm-follow-up/leads': {
+      id: '/_authenticated/crm-follow-up/leads'
+      path: '/crm-follow-up/leads'
+      fullPath: '/crm-follow-up/leads'
+      preLoaderRoute: typeof AuthenticatedCrmFollowUpLeadsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/crm-follow-up/internal': {
+      id: '/_authenticated/crm-follow-up/internal'
+      path: '/crm-follow-up/internal'
+      fullPath: '/crm-follow-up/internal'
+      preLoaderRoute: typeof AuthenticatedCrmFollowUpInternalRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/crm-follow-up/external': {
+      id: '/_authenticated/crm-follow-up/external'
+      path: '/crm-follow-up/external'
+      fullPath: '/crm-follow-up/external'
+      preLoaderRoute: typeof AuthenticatedCrmFollowUpExternalRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/billing/opd': {
       id: '/_authenticated/billing/opd'
       path: '/billing/opd'
@@ -1202,6 +1302,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBillingExpensesRoute: typeof AuthenticatedBillingExpensesRoute
   AuthenticatedBillingIpdRoute: typeof AuthenticatedBillingIpdRoute
   AuthenticatedBillingOpdRoute: typeof AuthenticatedBillingOpdRoute
+  AuthenticatedCrmFollowUpExternalRoute: typeof AuthenticatedCrmFollowUpExternalRoute
+  AuthenticatedCrmFollowUpInternalRoute: typeof AuthenticatedCrmFollowUpInternalRoute
+  AuthenticatedCrmFollowUpLeadsRoute: typeof AuthenticatedCrmFollowUpLeadsRoute
   AuthenticatedHrAttendanceRoute: typeof AuthenticatedHrAttendanceRoute
   AuthenticatedHrPayrollRoute: typeof AuthenticatedHrPayrollRoute
   AuthenticatedHrStaffRoute: typeof AuthenticatedHrStaffRoute
@@ -1210,6 +1313,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIpdDischargeRoute: typeof AuthenticatedIpdDischargeRoute
   AuthenticatedIpdNursingRoute: typeof AuthenticatedIpdNursingRoute
   AuthenticatedIpdPatientsRoute: typeof AuthenticatedIpdPatientsRoute
+  AuthenticatedIpdPatientsbackRoute: typeof AuthenticatedIpdPatientsbackRoute
   AuthenticatedLabBookingRoute: typeof AuthenticatedLabBookingRoute
   AuthenticatedLabReportsRoute: typeof AuthenticatedLabReportsRoute
   AuthenticatedLabSamplesRoute: typeof AuthenticatedLabSamplesRoute
@@ -1246,6 +1350,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsUsersRoute: typeof AuthenticatedSettingsUsersRoute
+  AuthenticatedCrmFollowUpIndexRoute: typeof AuthenticatedCrmFollowUpIndexRoute
   AuthenticatedOpdPatientPatientIdRoute: typeof AuthenticatedOpdPatientPatientIdRoute
 }
 
@@ -1258,6 +1363,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBillingExpensesRoute: AuthenticatedBillingExpensesRoute,
   AuthenticatedBillingIpdRoute: AuthenticatedBillingIpdRoute,
   AuthenticatedBillingOpdRoute: AuthenticatedBillingOpdRoute,
+  AuthenticatedCrmFollowUpExternalRoute: AuthenticatedCrmFollowUpExternalRoute,
+  AuthenticatedCrmFollowUpInternalRoute: AuthenticatedCrmFollowUpInternalRoute,
+  AuthenticatedCrmFollowUpLeadsRoute: AuthenticatedCrmFollowUpLeadsRoute,
   AuthenticatedHrAttendanceRoute: AuthenticatedHrAttendanceRoute,
   AuthenticatedHrPayrollRoute: AuthenticatedHrPayrollRoute,
   AuthenticatedHrStaffRoute: AuthenticatedHrStaffRoute,
@@ -1266,6 +1374,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIpdDischargeRoute: AuthenticatedIpdDischargeRoute,
   AuthenticatedIpdNursingRoute: AuthenticatedIpdNursingRoute,
   AuthenticatedIpdPatientsRoute: AuthenticatedIpdPatientsRoute,
+  AuthenticatedIpdPatientsbackRoute: AuthenticatedIpdPatientsbackRoute,
   AuthenticatedLabBookingRoute: AuthenticatedLabBookingRoute,
   AuthenticatedLabReportsRoute: AuthenticatedLabReportsRoute,
   AuthenticatedLabSamplesRoute: AuthenticatedLabSamplesRoute,
@@ -1304,6 +1413,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsUsersRoute: AuthenticatedSettingsUsersRoute,
+  AuthenticatedCrmFollowUpIndexRoute: AuthenticatedCrmFollowUpIndexRoute,
   AuthenticatedOpdPatientPatientIdRoute: AuthenticatedOpdPatientPatientIdRoute,
 }
 
